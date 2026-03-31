@@ -48,6 +48,8 @@ pnpm build:contracts   # anchor build
 pnpm test:contracts    # anchor test
 ```
 
+iOS app is being built separately: [ios-dev](https://github.com/ahhimquesting/ios-dev)
+
 ---
 
 wip / internal
