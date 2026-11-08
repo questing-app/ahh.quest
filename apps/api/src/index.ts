@@ -15,7 +15,7 @@ import { processVerificationJob } from './services/verification.service'
 import { runCrank } from './cron/crank'
 import { ApiError } from './lib/errors'
 
-const app = new Hono<{ Bindings: Env }>()
+export const app = new Hono<{ Bindings: Env }>()
 
 // Global middleware
 app.use('*', corsMiddleware)

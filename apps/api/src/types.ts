@@ -34,6 +34,8 @@ export interface Env {
   // Internal
   WEBHOOK_SECRET: string
   ENVIRONMENT: string
+  /** Comma-separated origins allowed by CORS. */
+  ALLOWED_ORIGINS?: string
 }
 
 export interface AuthContext {

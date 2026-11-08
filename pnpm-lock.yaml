@@ -20,6 +20,9 @@ importers:
       '@coral-xyz/anchor':
         specifier: ^0.30.1
         version: 0.30.1(typescript@5.9.3)
+      '@hono/node-server':
+        specifier: ^2.1.6
+        version: 2.1.6(hono@4.13.17)
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -58,7 +61,7 @@ importers:
         specifier: ^0.21.0
         version: 0.21.4
       tsx:
-        specifier: ^4.7.0
+        specifier: ^4.23.15
         version: 4.23.15
       typescript:
         specifier: ^5.3.0
@@ -2165,6 +2168,15 @@ packages:
       react: '>= 16 || ^19.0.0-rc'
     dependencies:
       react: 18.3.1
+    dev: false
+
+  /@hono/node-server@2.1.6(hono@4.13.17):
+    resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4 || ^5.0.0-0
+    dependencies:
+      hono: 4.13.17
     dev: false
 
   /@img/sharp-darwin-arm64@0.33.5:
@@ -8282,7 +8294,6 @@ packages:
       is-hex-prefixed: 1.0.0
       strip-hex-prefix: 1.0.0
     dev: false
-    bundledDependencies: false
 
   /event-emitter@0.3.7:
     resolution: {integrity: sha512-R9h/VgWniW4ZRqx3Pd2/n3aGGbPmWilvHwzgrc6YQcFd2HzwPsIFLbrtfoU0hWorKUowd5Iqr5x3ZNv5H6bP+w==}
