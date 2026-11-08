@@ -1,6 +1,6 @@
 // End-to-end test of the API against the real devnet program.
 //
-// Starts a throwaway `wrangler dev` that trusts a locally generated signing
+// Starts a throwaway Node server (src/node/server.ts) that trusts a locally generated signing
 // key, creates two test users (poster and claimer) with fresh funded wallets,
 // and walks every flow: post, claim, proof + AI check, settlement, give up,
 // cancel, the crank, and the guard rails. Test rows are deleted afterwards.
@@ -19,7 +19,7 @@ import {
 } from '@solana/web3.js'
 import { createMintToInstruction } from '@solana/spl-token'
 import {
-  abandonClaimIx, ata, bytesToHex, cancelQuestIx, claimQuestIx, createQuestIx, ensureAtaIx,
+  abandonClaimIx, ata, bytesToHex, tokenProgramOf, cancelQuestIx, claimQuestIx, createQuestIx, ensureAtaIx,
   fetchClaim, fetchConfig, fetchQuest, hexToBytes, questProgram, sha256, submitProofIx, variant,
 } from '@quest/sdk'
 
@@ -38,6 +38,7 @@ const keyFile = (name: string) => Keypair.fromSecretKey(Uint8Array.from(JSON.par
 const deployer = keyFile('deployer')
 const connection = new Connection('https://api.devnet.solana.com', 'confirmed')
 const program = questProgram(connection)
+const tp = await tokenProgramOf(connection, mint)
 const db = createClient({ url: vars.TURSO_DATABASE_URL, authToken: vars.TURSO_AUTH_TOKEN })
 
 let failures = 0
@@ -49,18 +50,26 @@ function check(ok: boolean, label: string, detail?: unknown) {
 const send = (ixs: TransactionInstruction[], signer: Keypair) =>
   sendAndConfirmTransaction(connection, new Transaction().add(...ixs), [signer])
 const tokens = async (owner: Keypair) =>
-  Number((await connection.getTokenAccountBalance(ata(mint, owner.publicKey)).catch(() => null))?.value.amount ?? 0)
+  Number((await connection.getTokenAccountBalance(ata(mint, owner.publicKey, tp)).catch(() => null))?.value.amount ?? 0)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // --- test server -----------------------------------------------------------
 
 const { publicKey, privateKey } = await generateKeyPair('ES256')
-const pem = (await exportSPKI(publicKey)).trim().replace(/\n/g, '\\n')
+const pem = (await exportSPKI(publicKey)).trim()
+const wranglerVars = Object.fromEntries(
+  [...readFileSync(join(root, 'wrangler.toml'), 'utf8').matchAll(/^([A-Z_]+) = "([^"]*)"$/gm)].map((m) => [m[1], m[2]]),
+)
 
-const server = spawn('npx', [
-  'wrangler', 'dev', '--port', String(PORT), '--persist-to', '.wrangler/e2e', '--test-scheduled',
-  '--var', `PRIVY_VERIFICATION_KEY:${pem}`, '--var', `R2_PUBLIC_URL:${API}/media`,
-], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+const server = spawn('npx', ['tsx', 'src/node/server.ts'], {
+  cwd: root,
+  stdio: ['ignore', 'pipe', 'pipe'],
+  env: {
+    ...process.env, ...wranglerVars, ...vars,
+    PORT: String(PORT), PRIVY_VERIFICATION_KEY: pem, R2_PUBLIC_URL: `${API}/media`,
+    MEDIA_DIR: join(root, '.wrangler/e2e-media'), ENABLE_TEST_SCHEDULED: '1',
+  },
+})
 let serverLog = ''
 server.stdout.on('data', (d) => (serverLog += d))
 server.stderr.on('data', (d) => (serverLog += d))
@@ -104,10 +113,10 @@ const claimer = await makeUser('claimer')
 await send([
   SystemProgram.transfer({ fromPubkey: deployer.publicKey, toPubkey: poster.wallet.publicKey, lamports: 0.1 * LAMPORTS_PER_SOL }),
   SystemProgram.transfer({ fromPubkey: deployer.publicKey, toPubkey: claimer.wallet.publicKey, lamports: 0.1 * LAMPORTS_PER_SOL }),
-  ensureAtaIx(deployer.publicKey, poster.wallet.publicKey, mint),
-  ensureAtaIx(deployer.publicKey, claimer.wallet.publicKey, mint),
-  createMintToInstruction(mint, ata(mint, poster.wallet.publicKey), deployer.publicKey, 200_000_000n),
-  createMintToInstruction(mint, ata(mint, claimer.wallet.publicKey), deployer.publicKey, 20_000_000n),
+  ensureAtaIx(deployer.publicKey, poster.wallet.publicKey, mint, tp),
+  ensureAtaIx(deployer.publicKey, claimer.wallet.publicKey, mint, tp),
+  createMintToInstruction(mint, ata(mint, poster.wallet.publicKey, tp), deployer.publicKey, 200_000_000n, [], tp),
+  createMintToInstruction(mint, ata(mint, claimer.wallet.publicKey, tp), deployer.publicKey, 20_000_000n, [], tp),
 ], deployer)
 console.log(`users ready: poster ${poster.wallet.publicKey.toBase58()}, claimer ${claimer.wallet.publicKey.toBase58()}`)
 

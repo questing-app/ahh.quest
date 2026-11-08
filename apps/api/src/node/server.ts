@@ -17,7 +17,19 @@ env.VERIFICATION_QUEUE = new LocalQueue<VerificationMessage>((msg) =>
 ) as unknown as Queue
 
 const port = Number(process.env.PORT ?? 8787)
-serve({ fetch: (req) => app.fetch(req, env), port }, () => {
+// Test hook mirroring `wrangler dev --test-scheduled`; only the e2e script sets it.
+const testScheduled = process.env.ENABLE_TEST_SCHEDULED === '1'
+
+serve({
+  fetch: async (req) => {
+    if (testScheduled && new URL(req.url).pathname === '/__scheduled') {
+      await runCrank(env)
+      return new Response('ran crank')
+    }
+    return app.fetch(req, env)
+  },
+  port,
+}, () => {
   console.log(`quest-api listening on :${port}`)
 })
 
