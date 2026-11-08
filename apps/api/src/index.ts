@@ -1,3 +1,4 @@
+import './lib/node-globals'
 import { Hono } from 'hono'
 import type { Env, VerificationMessage } from './types'
 import { corsMiddleware } from './middleware/cors'
@@ -7,8 +8,9 @@ import { questRoutes } from './routes/quests'
 import { claimRoutes } from './routes/claims'
 import { userRoutes } from './routes/users'
 import { feedRoutes } from './routes/feed'
-import { mediaRoutes } from './routes/media'
+import { mediaRoutes, publicMediaRoutes } from './routes/media'
 import { webhookRoutes } from './routes/webhooks'
+import { devRoutes } from './routes/dev'
 import { processVerificationJob } from './services/verification.service'
 import { runCrank } from './cron/crank'
 import { ApiError } from './lib/errors'
@@ -29,7 +31,9 @@ app.route('/api/claims', claimRoutes)
 app.route('/api/users', userRoutes)
 app.route('/api/feed', feedRoutes)
 app.route('/api/media', mediaRoutes)
+app.route('/media', publicMediaRoutes)
 app.route('/api/webhooks', webhookRoutes)
+app.route('/api/dev', devRoutes)
 
 // Global error handler
 app.onError((err, c) => {

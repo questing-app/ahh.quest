@@ -11,6 +11,7 @@ target/
 .env
 .env.local
 .env.*.local
+.dev.vars
 
 # os
 .DS_Store
@@ -27,3 +28,15 @@ test-ledger/
 # misc
 *.log
 *.tsbuildinfo
+
+# keys
+contracts/.keys/
+
+# wrangler local state
+.wrangler/
+
+# local editor/agent config
+.cursor/
+.superdesign/
+.windsurfrules
+CLAUDE.md

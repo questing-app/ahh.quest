@@ -33,7 +33,7 @@ export class StorageService {
       const data = await this.r2.get(object.key)
       if (data) {
         const arrayBuffer = await data.arrayBuffer()
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+        const base64 = toBase64(new Uint8Array(arrayBuffer))
         frames.push({ base64, mimeType: 'image/jpeg' })
       }
     }
@@ -50,4 +50,12 @@ export class StorageService {
   videoKeyFromUrl(url: string): string {
     return url.replace(`${this.publicUrl}/`, '')
   }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return btoa(binary)
 }

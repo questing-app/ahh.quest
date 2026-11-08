@@ -3,8 +3,8 @@ import type { Env, AuthContext } from '../types'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth'
 import { createDbClient } from '../db/client'
 import { quests, claims } from '../db/schema'
-import { eq, desc } from 'drizzle-orm'
-import { formatQuest } from '../services/quest.service'
+import { eq, desc, inArray } from 'drizzle-orm'
+import { formatQuestsWithCreators } from '../services/quest.service'
 import { formatClaim } from '../services/claim.service'
 
 export const feedRoutes = new Hono<{ Bindings: Env }>()
@@ -23,7 +23,7 @@ feedRoutes.get('/', optionalAuthMiddleware, async (c) => {
     .offset(offset)
     .all()
 
-  return c.json(results.map(formatQuest))
+  return c.json(await formatQuestsWithCreators(db, results))
 })
 
 // GET /api/feed/mine — user's quests + claims
@@ -43,8 +43,17 @@ feedRoutes.get('/mine', authMiddleware, async (c) => {
     .orderBy(desc(claims.claimedAt))
     .all()
 
+  // Claims are listed with their quest so the client can render them directly.
+  const claimedQuestIds = [...new Set(myClaims.map((cl) => cl.questId))]
+  const claimedQuests = claimedQuestIds.length
+    ? await db.select().from(quests).where(inArray(quests.id, claimedQuestIds)).all()
+    : []
+  const questById = new Map(
+    (await formatQuestsWithCreators(db, claimedQuests)).map((q) => [q.id, q]),
+  )
+
   return c.json({
-    quests: myQuests.map(formatQuest),
-    claims: myClaims.map(formatClaim),
+    quests: await formatQuestsWithCreators(db, myQuests),
+    claims: myClaims.map((cl) => ({ ...formatClaim(cl), quest: questById.get(cl.questId) ?? null })),
   })
 })

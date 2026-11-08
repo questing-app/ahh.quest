@@ -33,7 +33,6 @@ export interface Env {
 
   // Internal
   WEBHOOK_SECRET: string
-  TREASURY_TOKEN_ACCOUNT: string
   ENVIRONMENT: string
 }
 
@@ -45,4 +44,10 @@ export interface AuthContext {
 
 export interface VerificationMessage {
   proofId: string
+}
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    auth: AuthContext | null
+  }
 }

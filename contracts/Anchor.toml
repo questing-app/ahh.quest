@@ -3,20 +3,20 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-quest = "QUESTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+quest = "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
 
 [programs.devnet]
-quest = "QUESTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+quest = "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
 
-[programs.mainnet-beta]
-quest = "QUESTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+[programs.mainnet]
+quest = "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = ".keys/deployer.json"
 
 [constants]
 quest_mint = "E7Xfasv5CRTNc6Xb16w36BZk3HRSogh8T4ZFimSnpump"

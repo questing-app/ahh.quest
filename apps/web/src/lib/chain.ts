@@ -1,0 +1,70 @@
+'use client'
+
+import { useCallback } from 'react'
+import { Connection, PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
+import { useSolanaWallets } from '@privy-io/react-auth/solana'
+import { PROGRAM_ERRORS, questProgram } from '@quest/sdk'
+import { useMe } from './queries'
+
+export const CLUSTER = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? 'devnet') as 'devnet' | 'mainnet-beta'
+export const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
+
+export const connection = new Connection(RPC_URL, 'confirmed')
+export const program = questProgram(connection)
+
+const explorerSuffix = CLUSTER === 'mainnet-beta' ? '' : `?cluster=${CLUSTER}`
+export const explorerTx = (signature: string) => `https://explorer.solana.com/tx/${signature}${explorerSuffix}`
+export const explorerAddress = (address: string) => `https://explorer.solana.com/address/${address}${explorerSuffix}`
+
+/** The wallet the API knows this user by, ready to sign. */
+export function useWallet() {
+  const { data: me } = useMe()
+  const { wallets } = useSolanaWallets()
+  const wallet = wallets.find((w) => w.address === me?.pubkey) ?? null
+  return { wallet, address: me?.pubkey ?? null }
+}
+
+/** Sign and send instructions with the user's wallet, then wait for confirmation. */
+export function useSendTransaction() {
+  const { wallet } = useWallet()
+
+  return useCallback(
+    async (instructions: TransactionInstruction[]) => {
+      if (!wallet) throw new Error('Your wallet is still loading. Try again in a moment.')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
+      const tx = new Transaction({ feePayer: new PublicKey(wallet.address), blockhash, lastValidBlockHeight })
+      tx.add(...instructions)
+      try {
+        // Sign only, then send ourselves: external wallets like Phantom would
+        // otherwise broadcast to whichever network they're set to.
+        const signed = await wallet.signTransaction(tx)
+        const signature = await connection.sendRawTransaction(signed.serialize())
+        const result = await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+        if (result.value.err) throw new Error(JSON.stringify(result.value.err))
+        return signature
+      } catch (err) {
+        throw new Error(transactionErrorMessage(err))
+      }
+    },
+    [wallet],
+  )
+}
+
+const programErrors = new Map(PROGRAM_ERRORS.map((e) => [e.code, e.msg]))
+
+export function transactionErrorMessage(err: unknown): string {
+  const text = err instanceof Error ? `${err.message} ${(err as { logs?: string[] }).logs?.join(' ') ?? ''}` : String(err)
+
+  const custom = text.match(/custom program error: (0x[0-9a-f]+)/i) ?? text.match(/"Custom":(\d+)/)
+  if (custom) {
+    const code = Number(custom[1])
+    if (programErrors.has(code)) return `${programErrors.get(code)}.`
+    if (code === 1) return 'Not enough tokens in your wallet for this.'
+  }
+  if (/no record of a prior credit|insufficient (funds|lamports)/i.test(text)) {
+    return 'Your wallet needs a little SOL to pay network fees.'
+  }
+  if (/reject|denied|cancel/i.test(text)) return 'You cancelled the transaction.'
+  if (/blockhash|expired/i.test(text)) return 'The network was slow and the transaction expired. Try again.'
+  return 'The transaction didn’t go through. Try again.'
+}

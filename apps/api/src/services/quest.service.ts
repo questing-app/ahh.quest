@@ -1,70 +1,64 @@
-import { eq, desc, and, sql } from 'drizzle-orm'
+import { eq, desc, and, sql, inArray } from 'drizzle-orm'
+import { bytesToHex, escrowPda, fetchQuest, questPda, variant } from '@quest/sdk'
+import { nanoid } from 'nanoid'
 import { quests, users } from '../db/schema'
 import type { Database } from '../db/client'
-import { nanoid } from 'nanoid'
-import { PublicKey } from '@solana/web3.js'
-import { deriveQuestPda, deriveEscrowPda } from '../lib/solana'
+import { getProgram } from '../lib/solana'
+import { BadRequest } from '../lib/errors'
+import type { Env } from '../types'
 
 export interface CreateQuestInput {
   creatorId: string
   creatorPubkey: string
   description: string
-  rewardAmount: number
-  rewardMint: string
-  questType: 'direct' | 'open'
-  targetPubkey?: string
-  maxClaimers?: number
-  timeLimitHours?: number
-  programId: string
+  onchainId: string
+  txSignature: string
 }
 
-export async function createQuest(db: Database, input: CreateQuestInput) {
-  const now = Math.floor(Date.now() / 1000)
-  const id = nanoid()
+/**
+ * The client creates and funds the quest on-chain first. Everything we store
+ * (reward, mint, target, deadline) is read back from the quest account, and
+ * the description must hash to the account's description_hash.
+ */
+export async function createQuest(db: Database, env: Env, input: CreateQuestInput) {
+  if (!/^\d+$/.test(input.onchainId)) throw new BadRequest('Invalid onchainId')
 
-  // Get next onchain ID from quest count
-  // In production this would come from reading the config account
-  // For now we use a DB-level counter
-  const countResult = await db.select({ count: sql<number>`count(*)` }).from(quests).get()
-  const onchainId = (countResult?.count ?? 0).toString()
+  const existing = await db.select({ id: quests.id }).from(quests)
+    .where(eq(quests.onchainId, input.onchainId)).get()
+  if (existing) throw new BadRequest('Quest already recorded')
 
-  // Compute description hash
-  const encoder = new TextEncoder()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(input.description))
-  const descriptionHash = Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+  const account = await fetchQuest(getProgram(env), input.onchainId)
+  if (!account) throw new BadRequest('Quest account not found on-chain')
+  if (account.creator.toBase58() !== input.creatorPubkey) throw new BadRequest('Quest was created by another wallet')
+  if (variant(account.status) !== 'active') throw new BadRequest('Quest is not active on-chain')
 
-  // Derive PDAs
-  const programId = new PublicKey(input.programId)
-  const [questPda] = deriveQuestPda(programId, BigInt(onchainId))
-  const [escrowPda] = deriveEscrowPda(programId, questPda)
-
-  const deadline = input.timeLimitHours ? now + input.timeLimitHours * 3600 : null
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input.description))
+  const descriptionHash = bytesToHex(new Uint8Array(hashBuffer))
+  if (descriptionHash !== bytesToHex(account.descriptionHash)) {
+    throw new BadRequest('Description does not match the on-chain hash')
+  }
 
   const quest = {
-    id,
-    onchainId,
+    id: nanoid(),
+    onchainId: input.onchainId,
     creatorId: input.creatorId,
     description: input.description,
     descriptionHash,
-    questType: input.questType,
+    questType: variant(account.questType) === 'direct' ? 'direct' as const : 'open' as const,
     status: 'active' as const,
-    rewardAmount: input.rewardAmount,
-    rewardMint: input.rewardMint,
-    targetPubkey: input.targetPubkey || null,
-    maxClaimers: input.maxClaimers || 1,
+    rewardAmount: account.rewardAmount.toNumber(),
+    rewardMint: account.rewardMint.toBase58(),
+    targetPubkey: account.target?.toBase58() ?? null,
+    maxClaimers: account.maxClaimers,
     currentClaimers: 0,
-    deadline,
-    escrowPda: escrowPda.toBase58(),
-    questPda: questPda.toBase58(),
-    txSignature: null,
-    createdAt: now,
+    deadline: account.timeLimit?.toNumber() ?? null,
+    escrowPda: escrowPda(questPda(input.onchainId)).toBase58(),
+    questPda: questPda(input.onchainId).toBase58(),
+    txSignature: input.txSignature,
+    createdAt: account.createdAt.toNumber(),
   }
 
   await db.insert(quests).values(quest)
-
-  // Increment creator's quests_posted
   await db.update(users)
     .set({ questsPosted: sql`${users.questsPosted} + 1` })
     .where(eq(users.id, input.creatorId))
@@ -127,6 +121,29 @@ export function formatQuest(quest: typeof quests.$inferSelect) {
     currentClaimers: quest.currentClaimers,
     deadline: quest.deadline,
     escrowPda: quest.escrowPda,
+    txSignature: quest.txSignature,
     createdAt: quest.createdAt,
   }
+}
+
+type QuestRow = typeof quests.$inferSelect
+
+// Feed and detail screens show who posted each quest, so attach a slim
+// creator record instead of making the client fetch users one by one.
+export async function formatQuestsWithCreators(db: Database, rows: QuestRow[]) {
+  const ids = [...new Set(rows.map((q) => q.creatorId))]
+  const creators = ids.length
+    ? await db.select({
+        id: users.id,
+        username: users.username,
+        pubkey: users.pubkey,
+        avatarUrl: users.avatarUrl,
+      }).from(users).where(inArray(users.id, ids)).all()
+    : []
+  const byId = new Map(creators.map((u) => [u.id, u]))
+
+  return rows.map((q) => ({
+    ...formatQuest(q),
+    creator: byId.get(q.creatorId) ?? null,
+  }))
 }

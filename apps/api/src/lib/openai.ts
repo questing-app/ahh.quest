@@ -36,7 +36,7 @@ export async function transcribeAudio(videoBlob: Blob, env: Env): Promise<string
   })
 
   if (!res.ok) {
-    throw new Error(`Whisper API error: ${res.status}`)
+    throw new Error(`Whisper API error ${res.status}: ${(await res.text()).slice(0, 300)}`)
   }
 
   const data = (await res.json()) as { text?: string }
@@ -81,7 +81,7 @@ export async function analyzeFrames(
   })
 
   if (!res.ok) {
-    throw new Error(`OpenAI API error: ${res.status}`)
+    throw new Error(`OpenAI API error ${res.status}: ${(await res.text()).slice(0, 300)}`)
   }
 
   const data = (await res.json()) as {

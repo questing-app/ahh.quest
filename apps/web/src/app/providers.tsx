@@ -1,29 +1,78 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrivyProvider } from '@privy-io/react-auth'
-import { useState } from 'react'
+import { toSolanaWalletConnectors, useSolanaWallets } from '@privy-io/react-auth/solana'
+import { AccessTokenProvider, useSession } from '@/lib/session'
+import { useMe } from '@/lib/queries'
+import { hasDefaultName } from '@/lib/types'
+import { CLUSTER, RPC_URL } from '@/lib/chain'
+
+const solanaConnectors = toSolanaWalletConnectors()
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } }),
+  )
 
   return (
     <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? ''}
       config={{
-        loginMethods: ['email', 'wallet', 'google', 'twitter'],
+        loginMethods: ['email', 'google', 'twitter', 'wallet'],
         appearance: {
-          theme: 'dark',
-          accentColor: '#7B5CFF',
+          theme: '#FCF9F1',
+          accentColor: '#4B6629',
+          walletChainType: 'solana-only',
         },
-        embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-        },
+        externalWallets: { solana: { connectors: solanaConnectors } },
+        solanaClusters: [{ name: CLUSTER, rpcUrl: RPC_URL }],
       }}
     >
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <AccessTokenProvider>
+        <QueryClientProvider client={queryClient}>
+          <EnsureSolanaWallet />
+          <FirstRunRedirect />
+          {children}
+        </QueryClientProvider>
+      </AccessTokenProvider>
     </PrivyProvider>
   )
+}
+
+/** Email and social logins arrive without a wallet; give them an embedded Solana one. */
+function EnsureSolanaWallet() {
+  const { authenticated } = useSession()
+  const { ready, wallets, createWallet } = useSolanaWallets()
+  const attempted = useRef(false)
+
+  useEffect(() => {
+    if (!authenticated || !ready || wallets.length > 0 || attempted.current) return
+    attempted.current = true
+    createWallet().catch((err) => console.error('Could not create Solana wallet', err))
+  }, [authenticated, ready, wallets.length, createWallet])
+
+  return null
+}
+
+/** Send brand-new accounts through /welcome once so they pick a name. */
+function FirstRunRedirect() {
+  const { data: me } = useMe()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    if (!me || !hasDefaultName(me) || pathname === '/welcome') return
+    try {
+      if (sessionStorage.getItem('quest:welcomed')) return
+      sessionStorage.setItem('quest:welcomed', '1')
+    } catch {
+      // Storage blocked: still show onboarding, just possibly more than once.
+    }
+    router.push('/welcome')
+  }, [me, pathname, router])
+
+  return null
 }

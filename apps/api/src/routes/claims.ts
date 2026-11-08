@@ -1,28 +1,26 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import type { Env, AuthContext } from '../types'
 import { authMiddleware } from '../middleware/auth'
 import { createDbClient } from '../db/client'
-import { claims, proofs, quests, users, verificationJobs } from '../db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { claims, proofs, quests, verificationJobs } from '../db/schema'
+import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-import { validateClaim, createClaim, abandonClaim, formatClaim } from '../services/claim.service'
-import { formatQuest } from '../services/quest.service'
+import { bytesToHex, fetchClaim, variant } from '@quest/sdk'
 import { OracleService } from '../services/oracle.service'
+import { recordApproved, recordRejected, recordReleased } from '../services/settlement.service'
+import { getProgram } from '../lib/solana'
 import { BadRequest, NotFound, Forbidden } from '../lib/errors'
+import { pathParam } from '../lib/params'
 
 export const claimRoutes = new Hono<{ Bindings: Env }>()
 
-// POST /api/quests/:questId/claim — mounted on questRoutes, but SDK calls POST /api/quests/:questId/claim
-// We handle this in a special way: the quests router will mount this
-// Actually, looking at SDK: claimQuest calls POST /api/quests/${questId}/claim
-// But our claim routes are mounted at /api/claims
-// So we need to handle the claim creation in quests route too
-// For now, this file handles /api/claims/* routes
+// Claim creation lives in quests.ts (POST /api/quests/:questId/claim).
+// This router handles everything after a claim exists.
 
 // POST /api/claims/:claimId/proof
 claimRoutes.post('/:claimId/proof', authMiddleware, async (c) => {
   const auth = c.get('auth') as AuthContext
-  const claimId = c.req.param('claimId')
+  const claimId = pathParam(c, 'claimId')
   const body = await c.req.json<{
     videoUrl: string
     videoHash: string
@@ -36,13 +34,22 @@ claimRoutes.post('/:claimId/proof', authMiddleware, async (c) => {
   if (claim.claimerId !== auth.userId) throw new Forbidden('Not your claim')
   if (claim.status !== 'active') throw new BadRequest('Claim is not active')
 
-  const now = Math.floor(Date.now() / 1000)
-  if (now > claim.proofDeadline) throw new BadRequest('Proof deadline passed')
-
-  if (!body.videoUrl || !body.videoHash) {
-    throw new BadRequest('videoUrl and videoHash are required')
+  if (!body.videoUrl || !/^[0-9a-f]{64}$/.test(body.videoHash ?? '')) {
+    throw new BadRequest('videoUrl and a sha-256 videoHash are required')
   }
 
+  // The claimer signed submit_proof with this video's hash before calling us.
+  const quest = await db.select().from(quests).where(eq(quests.id, claim.questId)).get()
+  if (!quest) throw new NotFound('Quest not found')
+  const account = await fetchClaim(getProgram(c.env), quest.onchainId, auth.pubkey)
+  if (!account || variant(account.status) !== 'submitted') {
+    throw new BadRequest('Proof is not submitted on-chain')
+  }
+  if (!account.proofHash || bytesToHex(account.proofHash) !== body.videoHash) {
+    throw new BadRequest('Video does not match the on-chain proof hash')
+  }
+
+  const now = Math.floor(Date.now() / 1000)
   // Create proof record
   const proofId = nanoid()
   const proof = {
@@ -66,10 +73,8 @@ claimRoutes.post('/:claimId/proof', authMiddleware, async (c) => {
 
   await db.insert(proofs).values(proof)
 
-  // Update claim status + set review deadline
-  const reviewDeadline = now + 24 * 3600
   await db.update(claims)
-    .set({ status: 'submitted', reviewDeadline })
+    .set({ status: 'submitted', reviewDeadline: account.reviewDeadline?.toNumber() ?? null })
     .where(eq(claims.id, claimId))
 
   // Create verification job
@@ -99,44 +104,26 @@ claimRoutes.post('/:claimId/proof', authMiddleware, async (c) => {
   }, 201)
 })
 
-// POST /api/claims/:claimId/approve
-claimRoutes.post('/:claimId/approve', authMiddleware, async (c) => {
-  const auth = c.get('auth') as AuthContext
-  const claimId = c.req.param('claimId')
+async function loadForReview(c: Context<{ Bindings: Env }>, claimId: string, userId: string) {
   const db = createDbClient(c.env)
-
   const claim = await db.select().from(claims).where(eq(claims.id, claimId)).get()
   if (!claim) throw new NotFound('Claim not found')
-  if (claim.status !== 'submitted') throw new BadRequest('Claim is not submitted')
+  if (claim.status !== 'submitted') throw new BadRequest('This attempt is already decided')
 
   const quest = await db.select().from(quests).where(eq(quests.id, claim.questId)).get()
   if (!quest) throw new NotFound('Quest not found')
-  if (quest.creatorId !== auth.userId) throw new Forbidden('Not your quest')
+  if (quest.creatorId !== userId) throw new Forbidden('Not your quest')
 
-  // Check that AI was uncertain (escalated to creator)
-  const proof = await db.select().from(proofs).where(eq(proofs.claimId, claimId)).get()
-  if (!proof) throw new NotFound('Proof not found')
+  return { db, claim, quest }
+}
 
-  // Update proof
-  await db.update(proofs)
-    .set({ finalDecision: 'approved', decidedBy: 'creator' })
-    .where(eq(proofs.id, proof.id))
+// POST /api/claims/:claimId/approve
+claimRoutes.post('/:claimId/approve', authMiddleware, async (c) => {
+  const auth = c.get('auth') as AuthContext
+  const { db, claim, quest } = await loadForReview(c, pathParam(c, 'claimId'), auth.userId)
 
-  // Call oracle to approve on-chain
-  const oracle = new OracleService(c.env)
-  const txSig = await oracle.approveCompletion(quest, claim)
-
-  await db.update(proofs).set({ oracleTxSig: txSig }).where(eq(proofs.id, proof.id))
-  await db.update(claims).set({ status: 'approved' }).where(eq(claims.id, claimId))
-  await db.update(quests).set({ status: 'completed' }).where(eq(quests.id, quest.id))
-
-  // Update user stats
-  await db.update(users)
-    .set({
-      questsCompleted: sql`${users.questsCompleted} + 1`,
-      activeClaims: sql`${users.activeClaims} - 1`,
-    })
-    .where(eq(users.id, claim.claimerId))
+  const txSig = await new OracleService(c.env, db).approve(quest, claim)
+  await recordApproved(db, quest, claim, 'creator', txSig)
 
   return c.json({ success: true, txSignature: txSig })
 })
@@ -144,48 +131,33 @@ claimRoutes.post('/:claimId/approve', authMiddleware, async (c) => {
 // POST /api/claims/:claimId/reject
 claimRoutes.post('/:claimId/reject', authMiddleware, async (c) => {
   const auth = c.get('auth') as AuthContext
-  const claimId = c.req.param('claimId')
-  const db = createDbClient(c.env)
+  const { db, claim, quest } = await loadForReview(c, pathParam(c, 'claimId'), auth.userId)
 
-  const claim = await db.select().from(claims).where(eq(claims.id, claimId)).get()
-  if (!claim) throw new NotFound('Claim not found')
-  if (claim.status !== 'submitted') throw new BadRequest('Claim is not submitted')
-
-  const quest = await db.select().from(quests).where(eq(quests.id, claim.questId)).get()
-  if (!quest) throw new NotFound('Quest not found')
-  if (quest.creatorId !== auth.userId) throw new Forbidden('Not your quest')
-
-  const proof = await db.select().from(proofs).where(eq(proofs.claimId, claimId)).get()
-  if (!proof) throw new NotFound('Proof not found')
-
-  await db.update(proofs)
-    .set({ finalDecision: 'rejected', decidedBy: 'creator' })
-    .where(eq(proofs.id, proof.id))
-
-  // Creator rejection = not safety flagged
-  const oracle = new OracleService(c.env)
-  const txSig = await oracle.rejectCompletion(quest, claim, false)
-
-  await db.update(proofs).set({ oracleTxSig: txSig }).where(eq(proofs.id, proof.id))
-  await db.update(claims).set({ status: 'rejected' }).where(eq(claims.id, claimId))
-  await db.update(quests).set({ status: 'failed' }).where(eq(quests.id, quest.id))
-
-  await db.update(users)
-    .set({ activeClaims: sql`${users.activeClaims} - 1` })
-    .where(eq(users.id, claim.claimerId))
+  const txSig = await new OracleService(c.env, db).reject(quest, claim, false)
+  await recordRejected(db, quest, claim, 'creator', txSig, false)
 
   return c.json({ success: true, txSignature: txSig })
 })
 
 // DELETE /api/claims/:claimId
+// The claimer signs abandon_claim first; this mirrors it.
 claimRoutes.delete('/:claimId', authMiddleware, async (c) => {
   const auth = c.get('auth') as AuthContext
   const db = createDbClient(c.env)
-  const result = await abandonClaim(db, c.req.param('claimId'), auth.userId)
 
-  if ('error' in result) {
-    throw new BadRequest(result.error)
+  const claim = await db.select().from(claims).where(eq(claims.id, pathParam(c, 'claimId'))).get()
+  if (!claim) throw new NotFound('Claim not found')
+  if (claim.claimerId !== auth.userId) throw new Forbidden('Not your claim')
+  if (claim.status !== 'active') throw new BadRequest('Claim is not active')
+
+  const quest = await db.select().from(quests).where(eq(quests.id, claim.questId)).get()
+  if (!quest) throw new NotFound('Quest not found')
+
+  const account = await fetchClaim(getProgram(c.env), quest.onchainId, auth.pubkey)
+  if (!account || variant(account.status) !== 'abandoned') {
+    throw new BadRequest('Claim is not abandoned on-chain')
   }
 
+  await recordReleased(db, quest, claim, 'abandoned')
   return c.body(null, 204)
 })

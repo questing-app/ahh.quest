@@ -3,10 +3,15 @@ main = "src/index.ts"
 compatibility_date = "2024-05-01"
 compatibility_flags = ["nodejs_compat"]
 
+# One Buffer implementation for the whole bundle. Anchor's decoder rejects
+# buffers created by a second copy ("variant mismatch").
+[alias]
+"buffer" = "./node_modules/buffer/index.js"
+
 [vars]
 ENVIRONMENT = "development"
-QUEST_PROGRAM_ID = "QUESTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-QUEST_MINT = "E7Xfasv5CRTNc6Xb16w36BZk3HRSogh8T4ZFimSnpump"
+QUEST_PROGRAM_ID = "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
+QUEST_MINT = "DV1RyE7yrujJd1pzN9ccekCTpDfYiUuxdguqRkxCu63m"
 R2_BUCKET_NAME = "quest-media"
 R2_PUBLIC_URL = "https://media.quest.gg"
 

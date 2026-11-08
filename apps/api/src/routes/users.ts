@@ -4,6 +4,7 @@ import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth'
 import { createDbClient } from '../db/client'
 import { getUserById, getUserByPubkey, updateUser, formatUser } from '../services/user.service'
 import { BadRequest, NotFound } from '../lib/errors'
+import { pathParam } from '../lib/params'
 
 export const userRoutes = new Hono<{ Bindings: Env }>()
 
@@ -42,7 +43,7 @@ userRoutes.patch('/me', authMiddleware, async (c) => {
 
 // GET /api/users/:pubkey
 userRoutes.get('/:pubkey', optionalAuthMiddleware, async (c) => {
-  const pubkey = c.req.param('pubkey')
+  const pubkey = pathParam(c, 'pubkey')
   const db = createDbClient(c.env)
   const user = await getUserByPubkey(db, pubkey)
   if (!user) throw new NotFound('User not found')

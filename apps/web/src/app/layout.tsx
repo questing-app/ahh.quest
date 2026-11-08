@@ -1,44 +1,44 @@
-import type { Metadata } from 'next'
-import { Inter, Space_Grotesk } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { Caprasimo, Public_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 
-const inter = Inter({ 
+const display = Caprasimo({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: '400',
+  adjustFontFallback: false,
+  variable: '--font-display',
 })
 
-const spaceGrotesk = Space_Grotesk({
+const body = Public_Sans({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
+  variable: '--font-body',
 })
 
 export const metadata: Metadata = {
-  title: 'QUEST | Side quests. Main rewards.',
-  description: 'Social challenge protocol on Solana. Post quests, complete them on video, collect the loot.',
-  openGraph: {
-    title: 'QUEST',
-    description: 'Side quests. Main rewards.',
-    type: 'website',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://quest.gg'),
+  title: {
+    default: 'Quest',
+    template: '%s · Quest',
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'QUEST',
-    description: 'Side quests. Main rewards.',
+  description: 'Post a dare with a reward. Whoever films it and gets approved takes the money.',
+  openGraph: {
+    title: 'Quest',
+    description: 'Post a dare with a reward. Whoever films it and gets approved takes the money.',
+    images: ['/art/complete.png'],
+    type: 'website',
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export const viewport: Viewport = {
+  themeColor: '#F7F1E3',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
-      <body className="bg-quest-black text-white min-h-screen antialiased">
-        <Providers>
-          {children}
-        </Providers>
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <body className="min-h-screen bg-paper text-ink antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

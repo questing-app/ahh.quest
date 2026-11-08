@@ -1,114 +1,65 @@
-import { Context, Next } from 'hono'
-import type { Env, AuthContext } from '../types'
-import { verifyPrivyToken } from '../lib/privy'
-import { createDbClient } from '../db/client'
-import { users } from '../db/schema'
+import type { Context, Next } from 'hono'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import type { Env, AuthContext } from '../types'
+import { fetchSolanaWallet, verifyPrivyToken } from '../lib/privy'
+import { createDbClient } from '../db/client'
+import { users } from '../db/schema'
 
-export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
-  const authHeader = c.req.header('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ error: 'Missing authorization' }, 401)
-  }
+const SUSPENDED_AT_FLAGS = 3
 
-  const token = authHeader.slice(7)
+type Resolved = { auth: AuthContext } | { error: string; status: 401 | 403 }
 
+// Known users resolve from the database. A first sign-in asks Privy for the
+// wallet and creates the account.
+async function resolve(c: Context<{ Bindings: Env }>, create: boolean): Promise<Resolved | null> {
+  const header = c.req.header('Authorization')
+  if (!header?.startsWith('Bearer ')) return null
+
+  let privyUserId: string
   try {
-    const payload = await verifyPrivyToken(token, c.env)
-    const pubkey = extractSolanaWallet(payload)
-
-    if (!pubkey) {
-      return c.json({ error: 'No Solana wallet linked' }, 401)
-    }
-
-    const db = createDbClient(c.env)
-    let user = await db.select().from(users)
-      .where(eq(users.privyUserId, payload.sub as string))
-      .get()
-
-    if (!user) {
-      const now = Math.floor(Date.now() / 1000)
-      user = {
-        id: nanoid(),
-        privyUserId: payload.sub as string,
-        pubkey,
-        username: pubkey.slice(0, 8) + '...',
-        avatarUrl: null,
-        questsCompleted: 0,
-        questsPosted: 0,
-        activeClaims: 0,
-        flags: 0,
-        createdAt: now,
-      }
-      await db.insert(users).values(user)
-    }
-
-    if (user.flags >= 3) {
-      return c.json({ error: 'Account suspended' }, 403)
-    }
-
-    c.set('auth', {
-      userId: user.id,
-      pubkey: user.pubkey,
-      privyUserId: user.privyUserId,
-    } satisfies AuthContext)
-
-    await next()
-  } catch (err) {
-    console.error('Auth error:', err)
-    return c.json({ error: 'Invalid token' }, 401)
+    privyUserId = await verifyPrivyToken(header.slice(7), c.env)
+  } catch {
+    return { error: 'Invalid token', status: 401 }
   }
+
+  const db = createDbClient(c.env)
+  let user = await db.select().from(users).where(eq(users.privyUserId, privyUserId)).get()
+
+  if (!user) {
+    if (!create) return null
+    const pubkey = await fetchSolanaWallet(privyUserId, c.env)
+    if (!pubkey) return { error: 'No Solana wallet linked yet', status: 401 }
+    user = {
+      id: nanoid(),
+      privyUserId,
+      pubkey,
+      username: pubkey.slice(0, 8) + '...',
+      avatarUrl: null,
+      questsCompleted: 0,
+      questsPosted: 0,
+      activeClaims: 0,
+      flags: 0,
+      createdAt: Math.floor(Date.now() / 1000),
+    }
+    await db.insert(users).values(user).onConflictDoNothing()
+    user = (await db.select().from(users).where(eq(users.privyUserId, privyUserId)).get())!
+  }
+
+  if (user.flags >= SUSPENDED_AT_FLAGS) return { error: 'Account suspended', status: 403 }
+  return { auth: { userId: user.id, pubkey: user.pubkey, privyUserId } }
 }
 
-export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
-  const authHeader = c.req.header('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    c.set('auth', null)
-    await next()
-    return
-  }
-
-  try {
-    const token = authHeader.slice(7)
-    const payload = await verifyPrivyToken(token, c.env)
-    const pubkey = extractSolanaWallet(payload)
-
-    if (pubkey) {
-      const db = createDbClient(c.env)
-      const user = await db.select().from(users)
-        .where(eq(users.privyUserId, payload.sub as string))
-        .get()
-
-      if (user && user.flags < 3) {
-        c.set('auth', {
-          userId: user.id,
-          pubkey: user.pubkey,
-          privyUserId: user.privyUserId,
-        } satisfies AuthContext)
-      } else {
-        c.set('auth', null)
-      }
-    } else {
-      c.set('auth', null)
-    }
-  } catch {
-    c.set('auth', null)
-  }
-
+export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+  const result = await resolve(c, true)
+  if (!result) return c.json({ error: 'Missing authorization' }, 401)
+  if ('error' in result) return c.json({ error: result.error }, result.status)
+  c.set('auth', result.auth)
   await next()
 }
 
-function extractSolanaWallet(payload: any): string | null {
-  const linked = payload.linked_accounts as Array<{
-    type: string
-    address: string
-    chain_type: string
-  }> | undefined
-
-  const solana = linked?.find(
-    (a) => a.type === 'wallet' && a.chain_type === 'solana',
-  )
-
-  return solana?.address || null
+export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+  const result = await resolve(c, false)
+  c.set('auth', result && 'auth' in result ? result.auth : null)
+  await next()
 }

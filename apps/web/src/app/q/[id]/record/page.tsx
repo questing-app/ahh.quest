@@ -1,0 +1,360 @@
+'use client'
+
+import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { useMe, useQuest, useQuestClaims } from '@/lib/queries'
+import { useSession } from '@/lib/session'
+import { errorMessage } from '@/lib/api'
+import { formatClock, remaining } from '@/lib/time'
+import {
+  MAX_SECONDS,
+  MIN_SECONDS,
+  grabFrame,
+  inspectVideoFile,
+  pickRecorderType,
+  sendProof,
+  type SendStep,
+} from '@/lib/proof'
+import { button } from '@/components/button'
+import { bytesToHex, fetchClaim, hexToBytes, submitProofIx, variant } from '@quest/sdk'
+import { program, useSendTransaction, useWallet } from '@/lib/chain'
+
+type Take = { blob: Blob; url: string; duration: number; frames: Blob[] }
+type Stage = 'setup' | 'live' | 'recording' | 'review' | 'sending' | 'sent'
+
+const STEP_LABELS: Record<SendStep, string> = {
+  video: 'Uploading your video',
+  frames: 'Sending stills for the check',
+  sign: 'Recording the video’s fingerprint on-chain',
+  submit: 'Submitting your proof',
+}
+
+export default function RecordPage() {
+  const { id } = useParams<{ id: string }>()
+  const quest = useQuest(id)
+  const claims = useQuestClaims(id)
+  const { data: me } = useMe()
+  const { token } = useSession()
+  const queryClient = useQueryClient()
+  const sendTransaction = useSendTransaction()
+  const { address } = useWallet()
+
+  const claim = claims.data?.find((c) => c.claimerId === me?.id && c.status === 'active')
+
+  const liveRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const framesRef = useRef<Blob[]>([])
+  const startedRef = useRef(0)
+
+  const [stage, setStage] = useState<Stage>('setup')
+  const [facing, setFacing] = useState<'user' | 'environment'>('environment')
+  const [elapsed, setElapsed] = useState(0)
+  const [take, setTake] = useState<Take | null>(null)
+  const [step, setStep] = useState<SendStep>('video')
+  const [error, setError] = useState<string | null>(null)
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }, [])
+
+  useEffect(() => stopStream, [stopStream])
+  useEffect(() => () => {
+    if (take) URL.revokeObjectURL(take.url)
+  }, [take])
+
+  async function startCamera(mode = facing) {
+    setError(null)
+    stopStream()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode, width: { ideal: 1280 } },
+        audio: true,
+      })
+      streamRef.current = stream
+      setStage('live')
+      // The <video> mounts with the 'live' stage, so attach on the next frame.
+      requestAnimationFrame(() => {
+        if (liveRef.current) liveRef.current.srcObject = stream
+      })
+    } catch {
+      setError('Quest needs your camera and microphone. Allow access in your browser settings and try again.')
+    }
+  }
+
+  function flipCamera() {
+    const next = facing === 'user' ? 'environment' : 'user'
+    setFacing(next)
+    startCamera(next)
+  }
+
+  const stopRecording = useCallback(() => {
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+  }, [])
+
+  function startRecording() {
+    const stream = streamRef.current
+    if (!stream) return
+    const type = pickRecorderType()
+    const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
+    chunksRef.current = []
+    framesRef.current = []
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data)
+    }
+    recorder.onstop = () => {
+      const duration = (performance.now() - startedRef.current) / 1000
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' })
+      setTake({ blob, url: URL.createObjectURL(blob), duration, frames: framesRef.current })
+      stopStream()
+      setStage('review')
+    }
+
+    recorderRef.current = recorder
+    startedRef.current = performance.now()
+    recorder.start(1000)
+    setElapsed(0)
+    setStage('recording')
+  }
+
+  // Tick the clock, grab one still per second, and stop at the limit.
+  useEffect(() => {
+    if (stage !== 'recording') return
+    const timer = setInterval(async () => {
+      const seconds = (performance.now() - startedRef.current) / 1000
+      setElapsed(seconds)
+      if (liveRef.current && framesRef.current.length < MAX_SECONDS) {
+        const frame = await grabFrame(liveRef.current)
+        if (frame) framesRef.current.push(frame)
+      }
+      if (seconds >= MAX_SECONDS) stopRecording()
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [stage, stopRecording])
+
+  async function pickFile(file: File) {
+    setError(null)
+    try {
+      const { duration, frames } = await inspectVideoFile(file)
+      stopStream()
+      setTake({ blob: file, url: URL.createObjectURL(file), duration, frames })
+      setStage('review')
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  async function submit() {
+    if (!take || !claim || !token || !address || !quest.data) return
+    const questId = quest.data.onchainId
+    setError(null)
+    setStage('sending')
+    try {
+      await sendProof({
+        token,
+        claimId: claim.id,
+        video: take.blob,
+        frames: take.frames,
+        durationSeconds: take.duration,
+        signProof: async (videoHash) => {
+          // A retry after a failed upload to the API shouldn't sign twice.
+          const onChain = await fetchClaim(program, questId, address)
+          if (onChain && variant(onChain.status) === 'submitted' && onChain.proofHash && bytesToHex(onChain.proofHash) === videoHash) {
+            return 'already-submitted'
+          }
+          const ix = await submitProofIx(program, { claimer: address, questId, proofHash: hexToBytes(videoHash) })
+          return sendTransaction([ix])
+        },
+        onStep: setStep,
+      })
+      queryClient.invalidateQueries({ queryKey: ['quest', id] })
+      queryClient.invalidateQueries({ queryKey: ['mine'] })
+      setStage('sent')
+    } catch (err) {
+      setError(errorMessage(err))
+      setStage('review')
+    }
+  }
+
+  function retake() {
+    setTake(null)
+    startCamera()
+  }
+
+  const tooShort = take ? take.duration < MIN_SECONDS : false
+  const tooLong = take ? take.duration > MAX_SECONDS + 1 : false
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-night text-paper-raised">
+      <div className="flex h-14 items-center justify-between px-4">
+        <Link href={`/q/${id}`} className="text-[15px] text-paper-raised/80 hover:text-paper-raised">
+          ✕ Close
+        </Link>
+        {claim && stage !== 'sent' && (
+          <p className="text-sm text-paper-raised/70">
+            {remaining(claim.proofDeadline) ? `${remaining(claim.proofDeadline)} left to send` : 'Proof window closed'}
+          </p>
+        )}
+      </div>
+
+      <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col px-4 pb-8">
+        {(quest.isPending || claims.isPending) && <p className="py-10 text-paper-raised/70">Loading…</p>}
+
+        {quest.data && claims.data && !claim && stage !== 'sent' && (
+          <div className="py-10">
+            <p className="text-[17px]">You don’t have an open attempt on this quest.</p>
+            <Link href={`/q/${id}`} className={`${button()} mt-6`}>
+              Back to the quest
+            </Link>
+          </div>
+        )}
+
+        {quest.data && (claim || stage === 'sent') && (
+          <>
+            {/* The quest stays on screen while filming, like a teleprompter. */}
+            {stage !== 'sent' && (
+              <div className="rounded-[10px] bg-black/55 px-4 py-3.5">
+                <p className="text-[17px] font-medium leading-snug">{quest.data.description}</p>
+                <p className="mt-1.5 text-sm text-paper-raised/65">
+                  One take, {MIN_SECONDS} to {MAX_SECONDS} seconds. Make sure the whole thing is in frame.
+                </p>
+              </div>
+            )}
+
+            <div className="relative mt-4 flex-1">
+              {(stage === 'live' || stage === 'recording') && (
+                <video
+                  ref={liveRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className={`aspect-[9/16] w-full rounded-[10px] bg-black object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
+                />
+              )}
+
+              {stage === 'recording' && (
+                <p className="tabular absolute left-3 top-3 rounded bg-wax px-2 py-1 text-sm font-semibold">
+                  {formatClock(elapsed)} / {formatClock(MAX_SECONDS)}
+                </p>
+              )}
+
+              {(stage === 'review' || stage === 'sending') && take && (
+                <video src={take.url} controls playsInline className="aspect-[9/16] w-full rounded-[10px] bg-black object-contain" />
+              )}
+
+              {stage === 'setup' && (
+                <div className="py-8">
+                  <p className="text-[17px] leading-relaxed text-paper-raised/85">
+                    Film it here so it goes straight in. Your camera and microphone switch on when you tap below.
+                  </p>
+                  <div className="mt-6 flex flex-col gap-3">
+                    <button type="button" onClick={() => startCamera()} className={`${button()} w-full`}>
+                      Turn on camera
+                    </button>
+                    <label className="cursor-pointer text-center text-[15px] text-paper-raised/75 underline underline-offset-4 hover:text-paper-raised">
+                      Or pick a video you already filmed
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="sr-only"
+                        onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {stage === 'sent' && (
+                <div className="py-10">
+                  <h1 className="font-display text-[34px] leading-tight text-paper-raised">Proof sent.</h1>
+                  <p className="mt-3 text-[17px] leading-relaxed text-paper-raised/80">
+                    The check usually takes a minute or two. If it passes, the reward and your deposit land
+                    in your wallet. If it’s a close call, the poster gets 24 hours to decide.
+                  </p>
+                  <Link href={`/q/${id}`} className={`${button()} mt-7`}>
+                    Back to the quest
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <p role="alert" className="mt-4 text-[15px] text-[#F0A08C]">
+                {error}
+              </p>
+            )}
+
+            {(stage === 'live' || stage === 'recording') && (
+              <div className="mt-6 grid grid-cols-3 items-center">
+                <span />
+                <button
+                  type="button"
+                  onClick={stage === 'live' ? startRecording : stopRecording}
+                  aria-label={stage === 'live' ? 'Start recording' : 'Stop recording'}
+                  className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-paper-raised"
+                >
+                  <span
+                    className={`block bg-wax transition-all ${stage === 'recording' ? 'h-7 w-7 rounded-md' : 'h-14 w-14 rounded-full'}`}
+                  />
+                </button>
+                {stage === 'live' ? (
+                  <button type="button" onClick={flipCamera} className="justify-self-end text-sm text-paper-raised/75 hover:text-paper-raised">
+                    Flip camera
+                  </button>
+                ) : (
+                  <span className="justify-self-end text-sm text-paper-raised/60">
+                    {elapsed < MIN_SECONDS ? `${Math.ceil(MIN_SECONDS - elapsed)}s to minimum` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {stage === 'review' && take && (
+              <div className="mt-6">
+                {(tooShort || tooLong) && (
+                  <p className="mb-4 text-[15px] text-[#F0A08C]">
+                    {tooShort
+                      ? `That’s ${Math.round(take.duration)} seconds. Proof needs at least ${MIN_SECONDS}.`
+                      : `That’s ${Math.round(take.duration)} seconds. Proof can be ${MAX_SECONDS} at most.`}
+                  </p>
+                )}
+                <div className="flex gap-3">
+                  <button type="button" onClick={submit} disabled={tooShort || tooLong} className={`${button()} flex-1`}>
+                    Send for checking
+                  </button>
+                  <button
+                    type="button"
+                    onClick={retake}
+                    className="rounded-md border border-paper-raised/30 px-5 py-3 text-[15px] font-semibold hover:border-paper-raised/70"
+                  >
+                    Record again
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {stage === 'sending' && (
+              <ol className="mt-6 space-y-2 text-[15px]">
+                {(Object.keys(STEP_LABELS) as SendStep[]).map((s) => {
+                  const order: SendStep[] = ['video', 'frames', 'sign', 'submit']
+                  const state = order.indexOf(s) < order.indexOf(step) ? 'done' : s === step ? 'now' : 'later'
+                  return (
+                    <li key={s} className={state === 'later' ? 'text-paper-raised/45' : ''}>
+                      {state === 'done' ? '✓ ' : state === 'now' ? '… ' : ''}
+                      {STEP_LABELS[s]}
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}

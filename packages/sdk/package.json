@@ -1,30 +1,25 @@
 {
   "name": "@quest/sdk",
   "version": "0.1.0",
-  "description": "TypeScript SDK for QUEST protocol",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "private": true,
+  "description": "Quest program client: IDL, PDAs and instruction builders shared by web and api",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "lint": "eslint src/",
-    "test": "vitest"
+    "sync-idl": "cp ../../contracts/target/idl/quest.json src/idl/quest.json && cp ../../contracts/target/types/quest.ts src/idl/quest.ts",
+    "typecheck": "tsc --noEmit",
+    "init-devnet": "tsx scripts/init-devnet.ts",
+    "smoke-devnet": "tsx scripts/smoke-devnet.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.0",
-    "@solana/web3.js": "^1.91.0"
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.91.0",
+    "buffer": "^6.0.3"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "tsup": "^8.0.0",
     "typescript": "^5.3.0",
-    "vitest": "^1.3.0"
+    "tsx": "^4.7.0"
   },
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  "type": "module"
 }

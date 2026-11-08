@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 
-declare_id!("QUESTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+declare_id!("JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM");
 
 const MIN_REWARD: u64 = 1_000_000; // 1 token (assuming 6 decimals)
 const MIN_STAKE_BPS: u64 = 500; // 5% = 500 basis points
@@ -48,7 +48,8 @@ pub mod quest {
         description_hash: [u8; 32],
     ) -> Result<()> {
         require!(reward_amount >= MIN_REWARD, QuestError::RewardTooLow);
-        require!(max_claimers > 0 && max_claimers <= 100, QuestError::InvalidMaxClaimers);
+        // The escrow holds exactly one reward, so only one attempt can be live at a time.
+        require!(max_claimers == 1, QuestError::InvalidMaxClaimers);
 
         if quest_type == QuestType::Direct {
             let t = target.ok_or(QuestError::DirectQuestNeedsTarget)?;
@@ -86,16 +87,19 @@ pub mod quest {
             .checked_add(1)
             .ok_or(QuestError::Overflow)?;
 
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
-                Transfer {
+                TransferChecked {
                     from: ctx.accounts.creator_token_account.to_account_info(),
+                    mint: ctx.accounts.reward_mint.to_account_info(),
                     to: ctx.accounts.escrow.to_account_info(),
                     authority: ctx.accounts.creator.to_account_info(),
                 },
             ),
             reward_amount,
+
+            ctx.accounts.reward_mint.decimals,
         )?;
 
         emit!(QuestCreated {
@@ -167,16 +171,19 @@ pub mod quest {
             quest.status = QuestStatus::Claimed;
         }
 
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
-                Transfer {
+                TransferChecked {
                     from: ctx.accounts.claimer_token_account.to_account_info(),
+                    mint: ctx.accounts.reward_mint.to_account_info(),
                     to: ctx.accounts.escrow.to_account_info(),
                     authority: ctx.accounts.claimer.to_account_info(),
                 },
             ),
             stake_amount,
+
+            ctx.accounts.reward_mint.decimals,
         )?;
 
         emit!(QuestClaimed {
@@ -228,6 +235,7 @@ pub mod quest {
         let config = &ctx.accounts.config;
 
         require!(claim.status == ClaimStatus::Submitted, QuestError::ClaimNotSubmitted);
+        require!(quest.status == QuestStatus::Claimed, QuestError::QuestNotActive);
         require!(
             ctx.accounts.authority.key() == config.authority,
             QuestError::NotOracle
@@ -243,7 +251,7 @@ pub mod quest {
             .ok_or(QuestError::Overflow)?;
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
@@ -253,31 +261,37 @@ pub mod quest {
             .checked_add(claim.stake_amount)
             .ok_or(QuestError::Overflow)?;
 
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
-                Transfer {
+                TransferChecked {
                     from: ctx.accounts.escrow.to_account_info(),
+                    mint: ctx.accounts.reward_mint.to_account_info(),
                     to: ctx.accounts.claimer_token_account.to_account_info(),
                     authority: quest.to_account_info(),
                 },
                 signer_seeds,
             ),
             claimer_payout,
+
+            ctx.accounts.reward_mint.decimals,
         )?;
 
         if fee_amount > 0 {
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.treasury.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 fee_amount,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
         }
 
@@ -305,13 +319,14 @@ pub mod quest {
         let config = &ctx.accounts.config;
 
         require!(claim.status == ClaimStatus::Submitted, QuestError::ClaimNotSubmitted);
+        require!(quest.status == QuestStatus::Claimed, QuestError::QuestNotActive);
         require!(
             ctx.accounts.authority.key() == config.authority,
             QuestError::NotOracle
         );
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
@@ -319,31 +334,37 @@ pub mod quest {
 
         if safety_flagged {
             // Safety rejection: reward back to creator, stake back to claimer
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.creator_token_account.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 quest.reward_amount,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
 
             if claim.stake_amount > 0 {
-                token::transfer(
+                token_interface::transfer_checked(
                     CpiContext::new_with_signer(
                         ctx.accounts.token_program.to_account_info(),
-                        Transfer {
+                        TransferChecked {
                             from: ctx.accounts.escrow.to_account_info(),
+                            mint: ctx.accounts.reward_mint.to_account_info(),
                             to: ctx.accounts.claimer_token_account.to_account_info(),
                             authority: quest.to_account_info(),
                         },
                         signer_seeds,
                     ),
                     claim.stake_amount,
+
+                    ctx.accounts.reward_mint.decimals,
                 )?;
             }
         } else {
@@ -352,17 +373,20 @@ pub mod quest {
                 .checked_add(claim.stake_amount)
                 .ok_or(QuestError::Overflow)?;
 
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.creator_token_account.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 creator_payout,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
         }
 
@@ -387,24 +411,27 @@ pub mod quest {
         require!(claim.claimer == ctx.accounts.claimer.key(), QuestError::NotClaimer);
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
         let signer_seeds = &[&quest_seeds[..]];
 
         if claim.stake_amount > 0 {
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.creator_token_account.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 claim.stake_amount,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
         }
 
@@ -432,24 +459,27 @@ pub mod quest {
         require!(now > claim.proof_deadline, QuestError::DeadlineNotReached);
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
         let signer_seeds = &[&quest_seeds[..]];
 
         if claim.stake_amount > 0 {
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.creator_token_account.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 claim.stake_amount,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
         }
 
@@ -475,6 +505,7 @@ pub mod quest {
         let now = Clock::get()?.unix_timestamp;
 
         require!(claim.status == ClaimStatus::Submitted, QuestError::ClaimNotSubmitted);
+        require!(quest.status == QuestStatus::Claimed, QuestError::QuestNotActive);
         let review_deadline = claim.review_deadline.ok_or(QuestError::NoReviewDeadline)?;
         require!(now > review_deadline, QuestError::DeadlineNotReached);
 
@@ -488,7 +519,7 @@ pub mod quest {
             .ok_or(QuestError::Overflow)?;
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
@@ -498,31 +529,37 @@ pub mod quest {
             .checked_add(claim.stake_amount)
             .ok_or(QuestError::Overflow)?;
 
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
-                Transfer {
+                TransferChecked {
                     from: ctx.accounts.escrow.to_account_info(),
+                    mint: ctx.accounts.reward_mint.to_account_info(),
                     to: ctx.accounts.claimer_token_account.to_account_info(),
                     authority: quest.to_account_info(),
                 },
                 signer_seeds,
             ),
             claimer_payout,
+
+            ctx.accounts.reward_mint.decimals,
         )?;
 
         if fee_amount > 0 {
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
-                    Transfer {
+                    TransferChecked {
                         from: ctx.accounts.escrow.to_account_info(),
+                        mint: ctx.accounts.reward_mint.to_account_info(),
                         to: ctx.accounts.treasury.to_account_info(),
                         authority: quest.to_account_info(),
                     },
                     signer_seeds,
                 ),
                 fee_amount,
+
+                ctx.accounts.reward_mint.decimals,
             )?;
         }
 
@@ -547,23 +584,26 @@ pub mod quest {
         require!(quest.creator == ctx.accounts.creator.key(), QuestError::NotCreator);
 
         let quest_seeds = &[
-            b"quest",
+            b"quest".as_ref(),
             &quest.id.to_le_bytes(),
             &[quest.bump],
         ];
         let signer_seeds = &[&quest_seeds[..]];
 
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
-                Transfer {
+                TransferChecked {
                     from: ctx.accounts.escrow.to_account_info(),
+                    mint: ctx.accounts.reward_mint.to_account_info(),
                     to: ctx.accounts.creator_token_account.to_account_info(),
                     authority: quest.to_account_info(),
                 },
                 signer_seeds,
             ),
             quest.reward_amount,
+
+            ctx.accounts.reward_mint.decimals,
         )?;
 
         quest.status = QuestStatus::Cancelled;
@@ -610,7 +650,7 @@ pub struct CreateQuest<'info> {
         init,
         payer = creator,
         space = 8 + Quest::INIT_SPACE,
-        seeds = [b"quest", &config.quest_count.to_le_bytes()],
+        seeds = [b"quest".as_ref(), config.quest_count.to_le_bytes().as_ref()],
         bump
     )]
     pub quest: Account<'info, Quest>,
@@ -620,20 +660,25 @@ pub struct CreateQuest<'info> {
         payer = creator,
         token::mint = reward_mint,
         token::authority = quest,
+        token::token_program = token_program,
         seeds = [b"escrow", quest.key().as_ref()],
         bump
     )]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    pub reward_mint: Account<'info, token::Mint>,
+    pub reward_mint: InterfaceAccount<'info, Mint>,
 
     #[account(mut)]
     pub creator: Signer<'info>,
 
-    #[account(mut, constraint = creator_token_account.owner == creator.key())]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = creator_token_account.owner == creator.key() @ QuestError::WrongTokenAccount,
+        constraint = creator_token_account.mint == reward_mint.key() @ QuestError::WrongTokenAccount
+    )]
+    pub creator_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -652,15 +697,22 @@ pub struct ClaimQuest<'info> {
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut)]
     pub claimer: Signer<'info>,
 
-    #[account(mut, constraint = claimer_token_account.owner == claimer.key())]
-    pub claimer_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = claimer_token_account.owner == claimer.key() @ QuestError::WrongTokenAccount,
+        constraint = claimer_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub claimer_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -686,20 +738,31 @@ pub struct ApproveCompletion<'info> {
     #[account(mut)]
     pub quest: Account<'info, Quest>,
 
-    #[account(mut)]
+    #[account(mut, constraint = claim.quest == quest.key() @ QuestError::ClaimQuestMismatch)]
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub claimer_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = claimer_token_account.owner == claim.claimer @ QuestError::WrongTokenAccount,
+        constraint = claimer_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub claimer_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub treasury: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = treasury.owner == config.treasury @ QuestError::WrongTokenAccount,
+        constraint = treasury.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub treasury: InterfaceAccount<'info, TokenAccount>,
 
     pub authority: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
@@ -710,20 +773,31 @@ pub struct RejectCompletion<'info> {
     #[account(mut)]
     pub quest: Account<'info, Quest>,
 
-    #[account(mut)]
+    #[account(mut, constraint = claim.quest == quest.key() @ QuestError::ClaimQuestMismatch)]
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = creator_token_account.owner == quest.creator @ QuestError::WrongTokenAccount,
+        constraint = creator_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub creator_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub claimer_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = claimer_token_account.owner == claim.claimer @ QuestError::WrongTokenAccount,
+        constraint = claimer_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub claimer_token_account: InterfaceAccount<'info, TokenAccount>,
 
     pub authority: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
@@ -739,13 +813,20 @@ pub struct AbandonClaim<'info> {
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = creator_token_account.owner == quest.creator @ QuestError::WrongTokenAccount,
+        constraint = creator_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub creator_token_account: InterfaceAccount<'info, TokenAccount>,
 
     pub claimer: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
@@ -753,18 +834,25 @@ pub struct ExpireClaim<'info> {
     #[account(mut)]
     pub quest: Account<'info, Quest>,
 
-    #[account(mut)]
+    #[account(mut, constraint = claim.quest == quest.key() @ QuestError::ClaimQuestMismatch)]
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = creator_token_account.owner == quest.creator @ QuestError::WrongTokenAccount,
+        constraint = creator_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub creator_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Anyone can call this (permissionless crank)
     pub cranker: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
@@ -775,21 +863,32 @@ pub struct AutoApprove<'info> {
     #[account(mut)]
     pub quest: Account<'info, Quest>,
 
-    #[account(mut)]
+    #[account(mut, constraint = claim.quest == quest.key() @ QuestError::ClaimQuestMismatch)]
     pub claim: Account<'info, Claim>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub claimer_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = claimer_token_account.owner == claim.claimer @ QuestError::WrongTokenAccount,
+        constraint = claimer_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub claimer_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
-    pub treasury: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = treasury.owner == config.treasury @ QuestError::WrongTokenAccount,
+        constraint = treasury.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub treasury: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Anyone can call this (permissionless crank)
     pub cranker: Signer<'info>,
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
@@ -798,15 +897,22 @@ pub struct CancelQuest<'info> {
     pub quest: Account<'info, Quest>,
 
     #[account(mut, seeds = [b"escrow", quest.key().as_ref()], bump)]
-    pub escrow: Account<'info, TokenAccount>,
+    pub escrow: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut)]
     pub creator: Signer<'info>,
 
-    #[account(mut, constraint = creator_token_account.owner == creator.key())]
-    pub creator_token_account: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = creator_token_account.owner == creator.key() @ QuestError::WrongTokenAccount,
+        constraint = creator_token_account.mint == quest.reward_mint @ QuestError::WrongTokenAccount
+    )]
+    pub creator_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    pub token_program: Program<'info, Token>,
+    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    pub reward_mint: InterfaceAccount<'info, Mint>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 // ============================================================================
@@ -1014,4 +1120,8 @@ pub enum QuestError {
     InvalidFeeConfig,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Token account has the wrong owner or mint")]
+    WrongTokenAccount,
+    #[msg("Claim does not belong to this quest")]
+    ClaimQuestMismatch,
 }

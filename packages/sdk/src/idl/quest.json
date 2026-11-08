@@ -1,0 +1,1573 @@
+{
+  "address": "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM",
+  "metadata": {
+    "name": "quest",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "QUEST - Social challenge protocol"
+  },
+  "instructions": [
+    {
+      "name": "abandon_claim",
+      "docs": [
+        "Claimer voluntarily abandons — forfeits stake to creator"
+      ],
+      "discriminator": [
+        232,
+        223,
+        66,
+        64,
+        76,
+        12,
+        182,
+        195
+      ],
+      "accounts": [
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  97,
+                  105,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              },
+              {
+                "kind": "account",
+                "path": "claimer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "claimer",
+          "signer": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "approve_completion",
+      "docs": [
+        "Oracle-only: approve after AI or creator verification"
+      ],
+      "discriminator": [
+        191,
+        196,
+        91,
+        103,
+        232,
+        146,
+        6,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claimer_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "auto_approve",
+      "docs": [
+        "Permissionless crank: auto-approve after review deadline (creator didn't respond)"
+      ],
+      "discriminator": [
+        36,
+        58,
+        85,
+        199,
+        138,
+        197,
+        222,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claimer_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "cranker",
+          "signer": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_quest",
+      "discriminator": [
+        204,
+        232,
+        50,
+        68,
+        92,
+        169,
+        110,
+        198
+      ],
+      "accounts": [
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_quest",
+      "discriminator": [
+        38,
+        197,
+        33,
+        123,
+        0,
+        108,
+        206,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  97,
+                  105,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              },
+              {
+                "kind": "account",
+                "path": "claimer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claimer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "claimer_token_account",
+          "writable": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "stake_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_quest",
+      "discriminator": [
+        112,
+        49,
+        32,
+        224,
+        255,
+        173,
+        5,
+        7
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.quest_count",
+                "account": "QuestConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "reward_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quest_type",
+          "type": {
+            "defined": {
+              "name": "QuestType"
+            }
+          }
+        },
+        {
+          "name": "target",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "max_claimers",
+          "type": "u8"
+        },
+        {
+          "name": "time_limit",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "description_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "expire_claim",
+      "docs": [
+        "Permissionless crank: expire claim after proof deadline"
+      ],
+      "discriminator": [
+        176,
+        78,
+        241,
+        29,
+        159,
+        81,
+        26,
+        6
+      ],
+      "accounts": [
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "cranker",
+          "signer": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "fee_basis_points",
+          "type": "u16"
+        },
+        {
+          "name": "burn_basis_points",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "reject_completion",
+      "docs": [
+        "Oracle-only: reject completion",
+        "safety_flagged: if true, return stake to claimer (content issue, not their fault)"
+      ],
+      "discriminator": [
+        167,
+        64,
+        81,
+        165,
+        234,
+        217,
+        188,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "claimer_token_account",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "safety_flagged",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "submit_proof",
+      "discriminator": [
+        54,
+        241,
+        46,
+        84,
+        4,
+        212,
+        46,
+        94
+      ],
+      "accounts": [
+        {
+          "name": "quest"
+        },
+        {
+          "name": "claim",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  97,
+                  105,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              },
+              {
+                "kind": "account",
+                "path": "claimer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claimer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "proof_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Claim",
+      "discriminator": [
+        155,
+        70,
+        22,
+        176,
+        123,
+        215,
+        246,
+        102
+      ]
+    },
+    {
+      "name": "Quest",
+      "discriminator": [
+        68,
+        78,
+        51,
+        23,
+        204,
+        27,
+        76,
+        132
+      ]
+    },
+    {
+      "name": "QuestConfig",
+      "discriminator": [
+        181,
+        88,
+        213,
+        44,
+        1,
+        15,
+        244,
+        70
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "ClaimAbandoned",
+      "discriminator": [
+        106,
+        172,
+        70,
+        17,
+        69,
+        32,
+        143,
+        137
+      ]
+    },
+    {
+      "name": "ClaimExpired",
+      "discriminator": [
+        224,
+        96,
+        139,
+        90,
+        26,
+        10,
+        65,
+        93
+      ]
+    },
+    {
+      "name": "ProofSubmitted",
+      "discriminator": [
+        160,
+        51,
+        85,
+        70,
+        249,
+        89,
+        5,
+        139
+      ]
+    },
+    {
+      "name": "ProtocolInitialized",
+      "discriminator": [
+        173,
+        122,
+        168,
+        254,
+        9,
+        118,
+        76,
+        132
+      ]
+    },
+    {
+      "name": "QuestCancelled",
+      "discriminator": [
+        180,
+        76,
+        82,
+        192,
+        51,
+        17,
+        186,
+        11
+      ]
+    },
+    {
+      "name": "QuestClaimed",
+      "discriminator": [
+        49,
+        134,
+        11,
+        29,
+        35,
+        182,
+        38,
+        197
+      ]
+    },
+    {
+      "name": "QuestCompleted",
+      "discriminator": [
+        185,
+        225,
+        220,
+        84,
+        209,
+        183,
+        217,
+        238
+      ]
+    },
+    {
+      "name": "QuestCreated",
+      "discriminator": [
+        179,
+        90,
+        201,
+        178,
+        90,
+        69,
+        73,
+        67
+      ]
+    },
+    {
+      "name": "QuestFailed",
+      "discriminator": [
+        113,
+        125,
+        155,
+        160,
+        56,
+        203,
+        78,
+        233
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "RewardTooLow",
+      "msg": "Reward below minimum"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidMaxClaimers",
+      "msg": "Invalid max claimers"
+    },
+    {
+      "code": 6002,
+      "name": "QuestNotActive",
+      "msg": "Quest is not active"
+    },
+    {
+      "code": 6003,
+      "name": "QuestFull",
+      "msg": "Quest is full"
+    },
+    {
+      "code": 6004,
+      "name": "QuestExpired",
+      "msg": "Quest has expired"
+    },
+    {
+      "code": 6005,
+      "name": "NotTargetUser",
+      "msg": "Not the target user for this quest"
+    },
+    {
+      "code": 6006,
+      "name": "ClaimNotActive",
+      "msg": "Claim is not active"
+    },
+    {
+      "code": 6007,
+      "name": "NotClaimer",
+      "msg": "Not the claimer"
+    },
+    {
+      "code": 6008,
+      "name": "ClaimNotSubmitted",
+      "msg": "Claim not submitted"
+    },
+    {
+      "code": 6009,
+      "name": "NotOracle",
+      "msg": "Not authorized (oracle only)"
+    },
+    {
+      "code": 6010,
+      "name": "NotCreator",
+      "msg": "Not the creator"
+    },
+    {
+      "code": 6011,
+      "name": "QuestAlreadyClaimed",
+      "msg": "Quest already claimed"
+    },
+    {
+      "code": 6012,
+      "name": "CannotClaimOwnQuest",
+      "msg": "Cannot claim your own quest"
+    },
+    {
+      "code": 6013,
+      "name": "StakeTooLow",
+      "msg": "Stake below minimum (5% of reward)"
+    },
+    {
+      "code": 6014,
+      "name": "DirectQuestNeedsTarget",
+      "msg": "Direct quest requires a target"
+    },
+    {
+      "code": 6015,
+      "name": "CannotTargetSelf",
+      "msg": "Cannot target yourself"
+    },
+    {
+      "code": 6016,
+      "name": "ProofDeadlinePassed",
+      "msg": "Proof deadline has passed"
+    },
+    {
+      "code": 6017,
+      "name": "DeadlineNotReached",
+      "msg": "Deadline not yet reached"
+    },
+    {
+      "code": 6018,
+      "name": "NoReviewDeadline",
+      "msg": "No review deadline set"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidTimeLimit",
+      "msg": "Invalid time limit"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidFeeConfig",
+      "msg": "Invalid fee configuration"
+    },
+    {
+      "code": 6021,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6022,
+      "name": "WrongTokenAccount",
+      "msg": "Token account has the wrong owner or mint"
+    },
+    {
+      "code": 6023,
+      "name": "ClaimQuestMismatch",
+      "msg": "Claim does not belong to this quest"
+    }
+  ],
+  "types": [
+    {
+      "name": "Claim",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_amount",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "ClaimStatus"
+              }
+            }
+          },
+          {
+            "name": "proof_deadline",
+            "type": "i64"
+          },
+          {
+            "name": "review_deadline",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "proof_hash",
+            "type": {
+              "option": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "claimed_at",
+            "type": "i64"
+          },
+          {
+            "name": "submitted_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimAbandoned",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimExpired",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Submitted"
+          },
+          {
+            "name": "Approved"
+          },
+          {
+            "name": "Rejected"
+          },
+          {
+            "name": "Abandoned"
+          },
+          {
+            "name": "Expired"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FailReason",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Rejected"
+          },
+          {
+            "name": "Expired"
+          },
+          {
+            "name": "Abandoned"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProofSubmitted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "proof_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_basis_points",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Quest",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "escrow",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_amount",
+            "type": "u64"
+          },
+          {
+            "name": "quest_type",
+            "type": {
+              "defined": {
+                "name": "QuestType"
+              }
+            }
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "QuestStatus"
+              }
+            }
+          },
+          {
+            "name": "target",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "max_claimers",
+            "type": "u8"
+          },
+          {
+            "name": "current_claimers",
+            "type": "u8"
+          },
+          {
+            "name": "time_limit",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "proof_deadline_hours",
+            "type": "u8"
+          },
+          {
+            "name": "review_deadline_hours",
+            "type": "u8"
+          },
+          {
+            "name": "description_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestCompleted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_basis_points",
+            "type": "u16"
+          },
+          {
+            "name": "burn_basis_points",
+            "type": "u16"
+          },
+          {
+            "name": "quest_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_amount",
+            "type": "u64"
+          },
+          {
+            "name": "reward_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quest_type",
+            "type": {
+              "defined": {
+                "name": "QuestType"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestFailed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "quest_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": {
+              "defined": {
+                "name": "FailReason"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Claimed"
+          },
+          {
+            "name": "Completed"
+          },
+          {
+            "name": "Failed"
+          },
+          {
+            "name": "Cancelled"
+          },
+          {
+            "name": "Expired"
+          }
+        ]
+      }
+    },
+    {
+      "name": "QuestType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Direct"
+          },
+          {
+            "name": "Open"
+          }
+        ]
+      }
+    }
+  ]
+}

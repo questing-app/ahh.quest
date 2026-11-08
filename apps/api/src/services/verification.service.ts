@@ -1,8 +1,9 @@
-import { eq, sql } from 'drizzle-orm'
-import { proofs, claims, quests, users, verificationJobs } from '../db/schema'
+import { eq } from 'drizzle-orm'
+import { proofs, claims, quests, verificationJobs } from '../db/schema'
 import { createDbClient, type Database } from '../db/client'
 import { StorageService } from './storage.service'
 import { OracleService } from './oracle.service'
+import { recordApproved, recordRejected } from './settlement.service'
 import { transcribeAudio, analyzeFrames, type AIVerificationResult } from '../lib/openai'
 import type { Env } from '../types'
 
@@ -15,6 +16,7 @@ export async function processVerificationJob(env: Env, proofId: string): Promise
 
   const claim = await db.select().from(claims).where(eq(claims.id, proof.claimId)).get()
   if (!claim) throw new Error(`Claim ${proof.claimId} not found`)
+  if (claim.status !== 'submitted') return
 
   const quest = await db.select().from(quests).where(eq(quests.id, claim.questId)).get()
   if (!quest) throw new Error(`Quest ${claim.questId} not found`)
@@ -73,7 +75,7 @@ export async function processVerificationJob(env: Env, proofId: string): Promise
 
   // Step 5: Apply threshold decision
   await updateJobStatus(db, proofId, 'deciding')
-  await applyDecision(db, env, proofId, aiResult, quest, claim)
+  await applyDecision(db, env, aiResult, quest, claim)
 
   await updateJobStatus(db, proofId, 'complete')
 }
@@ -81,73 +83,23 @@ export async function processVerificationJob(env: Env, proofId: string): Promise
 async function applyDecision(
   db: Database,
   env: Env,
-  proofId: string,
   aiResult: AIVerificationResult,
   quest: typeof quests.$inferSelect,
   claim: typeof claims.$inferSelect,
 ): Promise<void> {
-  const hasSafetyFlags = aiResult.safety_flags && aiResult.safety_flags.length > 0
+  const safetyFlagged = aiResult.safety_flags?.length > 0
+  const oracle = new OracleService(env, db)
 
-  if (aiResult.confidence >= 80 && !hasSafetyFlags) {
-    // Auto-approve
-    await db.update(proofs)
-      .set({ finalDecision: 'approved', decidedBy: 'ai' })
-      .where(eq(proofs.id, proofId))
-
-    try {
-      const oracle = new OracleService(env)
-      const txSig = await oracle.approveCompletion(quest, claim)
-      await db.update(proofs).set({ oracleTxSig: txSig }).where(eq(proofs.id, proofId))
-    } catch (err) {
-      console.error('Oracle approve failed:', err)
-      // Leave as AI-approved in DB, retry oracle tx in crank
-    }
-
-    await db.update(claims).set({ status: 'approved' }).where(eq(claims.id, claim.id))
-    await db.update(quests).set({ status: 'completed' }).where(eq(quests.id, quest.id))
-
-    await db.update(users)
-      .set({
-        questsCompleted: sql`${users.questsCompleted} + 1`,
-        activeClaims: sql`${users.activeClaims} - 1`,
-      })
-      .where(eq(users.id, claim.claimerId))
-
-  } else if (aiResult.confidence <= 20 || hasSafetyFlags) {
-    // Auto-reject
-    await db.update(proofs)
-      .set({ finalDecision: 'rejected', decidedBy: 'ai' })
-      .where(eq(proofs.id, proofId))
-
-    try {
-      const oracle = new OracleService(env)
-      const txSig = await oracle.rejectCompletion(quest, claim, hasSafetyFlags)
-      await db.update(proofs).set({ oracleTxSig: txSig }).where(eq(proofs.id, proofId))
-    } catch (err) {
-      console.error('Oracle reject failed:', err)
-    }
-
-    await db.update(claims).set({ status: 'rejected' }).where(eq(claims.id, claim.id))
-    await db.update(quests).set({ status: 'failed' }).where(eq(quests.id, quest.id))
-
-    await db.update(users)
-      .set({ activeClaims: sql`${users.activeClaims} - 1` })
-      .where(eq(users.id, claim.claimerId))
-
-    // If safety flagged, increment user flags
-    if (hasSafetyFlags) {
-      await db.update(users)
-        .set({ flags: sql`${users.flags} + 1` })
-        .where(eq(users.id, claim.claimerId))
-    }
-
-  } else {
-    // UNCERTAIN — escalate to creator review
-    // claim.reviewDeadline is already set (24h from proof submission)
-    // Creator can call POST /api/claims/:id/approve or /reject
-    // If they don't respond, crank calls auto_approve
-    console.log(`Claim ${claim.id}: AI uncertain (confidence ${aiResult.confidence}), escalated to creator`)
+  // A failed oracle transaction throws, so the queue retries the job.
+  if (aiResult.confidence >= 80 && !safetyFlagged) {
+    const txSig = await oracle.approve(quest, claim)
+    await recordApproved(db, quest, claim, 'ai', txSig)
+  } else if (aiResult.confidence <= 20 || safetyFlagged) {
+    const txSig = await oracle.reject(quest, claim, safetyFlagged)
+    await recordRejected(db, quest, claim, 'ai', txSig, safetyFlagged)
   }
+  // Anything in between waits for the creator. If they don't decide before
+  // review_deadline, the crank auto-approves.
 }
 
 async function updateJobStatus(db: Database, proofId: string, status: string) {
