@@ -39,20 +39,20 @@ function Intro() {
   const { login } = useSession()
 
   return (
-    <section className="mx-4 mt-2 overflow-hidden rounded-[16px] bg-paper-raised">
+    <section className="px-4">
       <Image
         src="/art/complete.png"
         alt="A knight hands a glowing coin to a wizard beside an open chest of gold"
         width={390}
         height={360}
         priority
-        className="art-fade mx-auto -mb-6 w-full max-w-[300px]"
+        className="art-fade mx-auto -mb-4 w-full max-w-[280px]"
       />
-      <div className="px-5 pb-5">
+      <div className="text-center">
         <h2 className="font-display text-[28px] leading-[1.1] text-moss">
           Dare someone.
           <br />
-          Pay when they prove it.
+          Pay when it’s done.
         </h2>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
           Post a challenge and put up the reward. Whoever films themselves doing it gets paid once the video is
