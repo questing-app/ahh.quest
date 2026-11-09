@@ -1,189 +1,260 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check } from 'lucide-react'
-import { useSolanaWallets } from '@privy-io/react-auth/solana'
+import { Lock, Scale, ShieldCheck } from 'lucide-react'
+import { PROGRAM_ID } from '@quest/sdk'
 import { NameForm } from '@/components/name-form'
+import { Sheet } from '@/components/sheet'
 import { button } from '@/components/button'
 import { useSession } from '@/lib/session'
 import { useMe } from '@/lib/queries'
 import { hasDefaultName } from '@/lib/types'
-import { shortAddress } from '@/lib/tokens'
+import { explorerAddress } from '@/lib/chain'
+import { MAX_SECONDS, MIN_SECONDS } from '@/lib/proof'
 
-// First run: how it works, who holds the money, sign in, pick a name.
-// The trust step comes before the wallet because "who holds my money?" is
-// the first thing people ask (product/onboarding research).
-const PANELS = [
-  {
-    art: '/art/walkthrough.png',
-    alt: 'A wizard explains a map of arrows between a castle, a sword and a chest',
-    title: 'How it works',
-    body: 'Someone posts a challenge and locks up a reward. You take it, film it in one take, and if the video passes, the reward is yours.',
-  },
-  {
-    art: '/art/wallet.png',
-    alt: 'A wizard points a knight on horseback toward a small chest on a mountain path',
-    title: 'Your reward is locked',
-    body: '',
-  },
-  {
-    art: '/art/profile.png',
-    alt: 'A wizard writes on a profile scroll pinned to an easel while a knight looks on',
-    title: 'Pick a name',
-    body: 'This is what people see on quests you post and finish.',
-  },
-  {
-    art: '/art/complete.png',
-    alt: 'A knight hands a glowing coin to a wizard beside an open chest of gold',
-    title: 'You’re set',
-    body: 'Find a quest to take, or post your own. You have 24 hours to film once you take one.',
-  },
-]
+// First run (screen map F2 → F3 → F4 → F5). F1 is the intro on the Quests tab.
+// The money-is-safe step comes before sign-in because "who holds my money?"
+// is the first thing people ask (product/onboarding research).
+type Step = 'how' | 'safe' | 'name'
+const ORDER: Step[] = ['how', 'safe', 'name']
 
-const TRUST = [
-  ['Nobody holds the money', 'The reward sits in an escrow on Solana. Not with us, not with the poster.'],
-  ['A check decides, not a mood', 'Every video is checked against the challenge. Close calls go to the poster, who has 24 hours or it approves itself.'],
-  ['No pulling out', 'Once someone takes a quest, the poster can’t cancel it.'],
-]
+/** Only same-site paths, so ?next= can't send people elsewhere. */
+function safeNext(value: string | null): string {
+  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/welcome') ? value : '/'
+}
 
 export default function WelcomePage() {
-  const [index, setIndex] = useState(0)
-  const panel = PANELS[index]
-  const last = index === PANELS.length - 1
+  return (
+    <Suspense>
+      <Welcome />
+    </Suspense>
+  )
+}
+
+function Welcome() {
+  const params = useSearchParams()
+  const router = useRouter()
+  const next = safeNext(params.get('next'))
+  const initial = (ORDER as string[]).includes(params.get('step') ?? '') ? (params.get('step') as Step) : 'how'
+  const [step, setStep] = useState<Step>(initial)
+  const index = ORDER.indexOf(step)
+  const finish = () => router.replace(next)
 
   return (
     <main className="chrome mx-auto flex min-h-[100dvh] max-w-[520px] flex-col overflow-x-hidden px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-[env(safe-area-inset-top)]">
       <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center">
         <div>
-          {index > 0 && (
+          {index > 0 && initial !== 'name' && (
             <button
               type="button"
-              onClick={() => setIndex(index - 1)}
+              onClick={() => setStep(ORDER[index - 1])}
               className="press -ml-2 flex h-11 items-center px-2 text-[17px] text-moss"
             >
-              Back
+              ‹ Back
             </button>
           )}
         </div>
         <div className="flex gap-1.5" aria-hidden>
-          {PANELS.map((p, i) => (
-            <span
-              key={p.title}
-              className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-5 bg-moss' : 'w-1.5 bg-ink/20'}`}
-            />
-          ))}
+          {initial !== 'name' &&
+            ORDER.map((s) => (
+              <span
+                key={s}
+                className={`h-1.5 rounded-full transition-all duration-300 ${s === step ? 'w-5 bg-moss' : 'w-1.5 bg-ink/20'}`}
+              />
+            ))}
         </div>
         <div className="flex justify-end">
-          {!last && (
-            <Link href="/" className="press -mr-2 flex h-11 items-center px-2 text-[17px] text-moss">
-              Skip
-            </Link>
-          )}
+          <button type="button" onClick={finish} className="press -mr-2 flex h-11 items-center px-2 text-[17px] text-moss">
+            Skip
+          </button>
         </div>
       </header>
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={index}
+          key={step}
           className="flex flex-1 flex-col"
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -40 }}
           transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
         >
-          <Image src={panel.art} alt={panel.alt} width={390} height={360} priority className={`art-fade -mx-6 w-[calc(100%+3rem)] max-w-none object-cover ${index === 1 ? 'max-h-[30dvh]' : 'max-h-[44dvh]'}`} />
-          <div className="mt-1 text-center">
-            <p className="tabular text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
-              Step {index + 1} of {PANELS.length}
-            </p>
-            <h1 className="mt-2 font-display text-[34px] leading-none text-moss">{panel.title}</h1>
-            {index === 1 ? (
-              <ul className="mx-auto mt-4 max-w-[22rem] space-y-3 text-left">
-                {TRUST.map(([title, body]) => (
-                  <li key={title} className="flex gap-3">
-                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-moss" strokeWidth={2.75} aria-hidden />
-                    <span className="text-[15px] leading-relaxed text-ink-soft">
-                      <span className="font-semibold text-ink">{title}.</span> {body}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mx-auto mt-3 max-w-[22rem] text-[17px] leading-relaxed text-ink-soft">{panel.body}</p>
-            )}
-          </div>
+          {step === 'how' && <HowItWorks onNext={() => setStep('safe')} />}
+          {step === 'safe' && <MoneyIsSafe onNext={() => setStep('name')} />}
+          {step === 'name' && <PickName onDone={finish} />}
         </motion.div>
       </AnimatePresence>
-
-      <div className="mt-6">
-        {index === 0 && (
-          <button type="button" onClick={() => setIndex(1)} className={`${button()} w-full`}>
-            Next
-          </button>
-        )}
-        {index === 1 && <WalletStep onNext={() => setIndex(2)} />}
-        {index === 2 && <ProfileStep onNext={() => setIndex(3)} />}
-        {last && (
-          <>
-            <Link href="/" className={`${button()} w-full`}>
-              Find a quest
-            </Link>
-            <Link href="/post" className="press mt-1 flex h-11 w-full items-center justify-center text-[17px] text-moss">
-              Post one
-            </Link>
-          </>
-        )}
-      </div>
     </main>
   )
 }
 
-function WalletStep({ onNext }: { onNext: () => void }) {
-  const { authenticated, login } = useSession()
-  const { wallets } = useSolanaWallets()
-  const address = wallets[0]?.address
+function Art({ src, alt }: { src: string; alt: string }) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={390}
+      height={360}
+      priority
+      className="art-fade -mx-6 max-h-[32dvh] w-[calc(100%+3rem)] max-w-none object-cover"
+    />
+  )
+}
 
-  if (!authenticated) {
-    return (
-      <>
-        <button type="button" onClick={login} className={`${button()} w-full`}>
-          Sign in
-        </button>
-        <p className="mt-2 text-center text-[13px] text-ink-soft">
-          Email, Google, X, or a Solana wallet. New accounts get a wallet set up for them.
-        </p>
-      </>
-    )
-  }
-  if (!address) return <p className="text-center text-[15px] text-ink-soft">Setting up your wallet…</p>
+function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="mt-1 text-center">
+      <p className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">{eyebrow}</p>
+      <h1 className="mt-2 font-display text-[32px] leading-[1.05] text-moss">{title}</h1>
+    </div>
+  )
+}
 
+/** F2: the whole loop on one screen. */
+function HowItWorks({ onNext }: { onNext: () => void }) {
+  const steps = [
+    ['Post a dare', 'Write the challenge and lock up a reward.'],
+    ['Someone films it', `They get 24 hours and one take of ${MIN_SECONDS}–${MAX_SECONDS} seconds.`],
+    ['Approved means paid', 'The reward goes straight to their wallet.'],
+  ]
   return (
     <>
-      <p className="mb-4 text-center text-[15px]">
-        Signed in. Your wallet: <span className="font-mono">{shortAddress(address)}</span>
-      </p>
-      <button type="button" onClick={onNext} className={`${button()} w-full`}>
-        Next
-      </button>
+      <Art src="/art/walkthrough.png" alt="A wizard explains a map of arrows between a castle, a sword and a chest" />
+      <Heading eyebrow="How it works" title="Three steps" />
+      <ol className="mx-auto mt-5 w-full max-w-[22rem] space-y-4">
+        {steps.map(([title, body], i) => (
+          <li key={title} className="flex gap-3.5">
+            <span className="tabular flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[17px] text-moss-deep">
+              {i + 1}
+            </span>
+            <span className="pt-0.5">
+              <span className="block text-[17px] font-semibold leading-snug">{title}</span>
+              <span className="block text-[15px] leading-relaxed text-ink-soft">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-auto pt-6">
+        <button type="button" onClick={onNext} className={`${button()} w-full`}>
+          Next
+        </button>
+      </div>
     </>
   )
 }
 
-function ProfileStep({ onNext }: { onNext: () => void }) {
-  const { data: me } = useMe()
-  if (!me) return <p className="text-center text-[15px] text-ink-soft">Loading your account…</p>
+/** F3 → F4: answer "who holds the money" before asking anyone to sign in. */
+function MoneyIsSafe({ onNext }: { onNext: () => void }) {
+  const { ready, authenticated, login } = useSession()
+  const [waiting, setWaiting] = useState(false)
+  const [vaultOpen, setVaultOpen] = useState(false)
+
+  // Privy's sheet closes on success; carry on to the name step.
+  useEffect(() => {
+    if (waiting && authenticated) onNext()
+  }, [waiting, authenticated, onNext])
+
+  const points = [
+    { icon: Lock, title: 'Locked when it’s posted', body: 'The reward sits in an on-chain vault, not with Quest and not with the poster.' },
+    { icon: ShieldCheck, title: 'No take-backs', body: 'Once someone takes the quest, the poster can’t pull the money.' },
+    { icon: Scale, title: 'Fair judging', body: 'An AI checks the video. If the poster doesn’t answer in time, it approves itself.' },
+  ]
 
   return (
     <>
-      <NameForm user={me} onDone={onNext} submitLabel="Save" />
-      {!hasDefaultName(me) && (
-        <button type="button" onClick={onNext} className="press mt-3 w-full py-2 text-center text-[15px] text-moss">
-          Keep {me.username}
+      <Art src="/art/wallet.png" alt="A wizard points a knight on horseback toward a small chest on a mountain path" />
+      <Heading eyebrow="Your money is safe" title="Rewards are locked up" />
+      <ul className="mx-auto mt-5 w-full max-w-[22rem] space-y-4">
+        {points.map(({ icon: Icon, title, body }) => (
+          <li key={title} className="flex gap-3.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-pale text-moss-deep">
+              <Icon className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />
+            </span>
+            <span className="pt-0.5">
+              <span className="block text-[17px] font-semibold leading-snug">{title}</span>
+              <span className="block text-[15px] leading-relaxed text-ink-soft">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-auto pt-6">
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() => {
+            if (authenticated) return onNext()
+            setWaiting(true)
+            login()
+          }}
+          className={`${button()} w-full`}
+        >
+          Continue
         </button>
-      )}
+        <button type="button" onClick={() => setVaultOpen(true)} className="press mt-1 h-11 w-full text-[17px] text-moss">
+          How the vault works
+        </button>
+      </div>
+
+      <Sheet open={vaultOpen} onClose={() => setVaultOpen(false)} label="How the vault works">
+        <h2 className="text-[22px] font-bold leading-tight">How the vault works</h2>
+        <div className="mt-3 space-y-3 text-[15px] leading-relaxed text-ink-soft">
+          <p>
+            When a quest is posted, the reward moves out of the poster’s wallet into an account owned by the Quest
+            program on Solana. Nobody holds a key to it, Quest included.
+          </p>
+          <p>
+            The program only releases it four ways: to the person whose video is approved, back to the poster if they
+            cancel before anyone takes it, back to the poster if the video is rejected, or back to the poster if
+            nobody finishes in time.
+          </p>
+          <p>Every quest page links to its vault so you can check the balance yourself.</p>
+        </div>
+        <a
+          href={explorerAddress(PROGRAM_ID.toBase58())}
+          target="_blank"
+          rel="noreferrer"
+          className={`${button('outline')} mt-5 w-full`}
+        >
+          See the program on Solana Explorer
+        </a>
+        <button type="button" onClick={() => setVaultOpen(false)} className="press mt-1 h-11 w-full text-[17px] text-moss">
+          Close
+        </button>
+      </Sheet>
+    </>
+  )
+}
+
+/** F5: one field. Skipping leaves the short wallet address as the name. */
+function PickName({ onDone }: { onDone: () => void }) {
+  const { ready, authenticated, login } = useSession()
+  const { data: me } = useMe()
+
+  // People who already picked a name don't need this step.
+  useEffect(() => {
+    if (me && !hasDefaultName(me)) onDone()
+  }, [me, onDone])
+
+  return (
+    <>
+      <h1 className="mt-6 font-display text-[30px] leading-[1.1] text-moss">What should people call you?</h1>
+      <div className="mt-6">
+        {!ready ? null : !authenticated ? (
+          <>
+            <p className="text-[15px] leading-relaxed text-ink-soft">Sign in first, then pick the name people see.</p>
+            <button type="button" onClick={login} className={`${button()} mt-4 w-full`}>
+              Sign in
+            </button>
+          </>
+        ) : !me ? (
+          <p className="text-[15px] text-ink-soft">Setting up your account…</p>
+        ) : (
+          <NameForm user={me} onDone={onDone} submitLabel="Done" stacked />
+        )}
+      </div>
     </>
   )
 }

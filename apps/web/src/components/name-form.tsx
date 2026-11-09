@@ -16,11 +16,14 @@ export function NameForm({
   onDone,
   onCancel,
   submitLabel = 'Save',
+  stacked = false,
 }: {
   user: User
   onDone?: () => void
   onCancel?: () => void
   submitLabel?: string
+  /** Full-width field with the button underneath, for onboarding. */
+  stacked?: boolean
 }) {
   const api = useApi()
   const queryClient = useQueryClient()
@@ -35,6 +38,40 @@ export function NameForm({
       onDone?.()
     },
   })
+
+  if (stacked) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (valid) save.mutate()
+        }}
+      >
+        <label htmlFor="username" className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+          Name
+        </label>
+        <input
+          id="username"
+          value={name}
+          onChange={(e) => setName(e.target.value.trim())}
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          autoFocus
+          placeholder="e.g. sam.sol"
+          className="mt-1.5 h-[50px] w-full rounded-[12px] bg-paper-raised px-4 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40"
+        />
+        <p role={save.error ? 'alert' : undefined} className={`mt-2 text-[13px] leading-relaxed ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
+          {save.error
+            ? errorMessage(save.error)
+            : 'Shown on quests you post and videos you send. You can change it any time. 3 to 30 letters, numbers, dots or underscores.'}
+        </p>
+        <button type="submit" disabled={!valid || save.isPending} className={`${button()} mt-6 w-full`}>
+          {save.isPending ? 'Saving…' : submitLabel}
+        </button>
+      </form>
+    )
+  }
 
   return (
     <form

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import Image from 'next/image'
-import { ChevronRight, Inbox, SquarePlus, Wallet } from 'lucide-react'
+import { ChevronRight, Inbox, SquarePlus, Wallet, CircleHelp } from 'lucide-react'
 import { SkeletonRows } from '@/components/skeleton'
 import { useTokenBalance } from '@/components/token-balance'
 import { TOKENS, formatUnits } from '@/lib/tokens'
@@ -95,6 +95,11 @@ export default function ProfilePage() {
                 icon={<Inbox className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />}
                 label="Your quests"
                 sub="Posted and taken quests are in Activity"
+              />
+              <NavRow
+                href="/welcome?step=how&next=/me"
+                icon={<CircleHelp className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />}
+                label="How it works"
               />
               {!standalone && <InstallRow />}
             </ul>

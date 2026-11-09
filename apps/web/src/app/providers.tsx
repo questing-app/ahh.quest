@@ -29,6 +29,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           theme: '#FCF9F1',
           accentColor: '#4B6629',
           walletChainType: 'solana-only',
+          landingHeader: 'Sign in to Quest',
+          loginMessage: 'We’ll make you a wallet, or you can use the one you already have.',
+          logo: '/apple-icon',
         },
         externalWallets: { solana: { connectors: solanaConnectors } },
         solanaClusters: [{ name: CLUSTER, rpcUrl: RPC_URL }],
@@ -74,7 +77,8 @@ function FirstRunRedirect() {
     } catch {
       // Storage blocked: still show onboarding, just possibly more than once.
     }
-    router.push('/welcome')
+    // Signed up from Post or Take: just the name, then back to what they were doing.
+    router.push(`/welcome?step=name&next=${encodeURIComponent(pathname ?? '/')}`)
   }, [me, pathname, router])
 
   return null

@@ -81,10 +81,9 @@ function Intro({ onLookAround }: { onLookAround: () => void }) {
           Pay when it’s done.
         </h2>
         <p className="mx-auto mt-3 max-w-[20rem] text-[15px] leading-relaxed text-ink-soft">
-          Post a challenge and lock up a reward. Whoever films it and gets approved is paid. If nobody does, you
-          get it back.
+          Post a challenge with a reward locked up. Whoever films it and gets approved is paid.
         </p>
-        <Link href="/welcome" className={`${button()} mt-5 w-full`}>
+        <Link href="/welcome" onClick={onLookAround} className={`${button()} mt-5 w-full`}>
           Get started
         </Link>
         <button type="button" onClick={onLookAround} className="press mt-1 h-11 w-full text-[17px] text-moss">
