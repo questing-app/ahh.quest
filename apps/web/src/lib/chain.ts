@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { Connection, PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
+import { usePrivy } from '@privy-io/react-auth'
 import { useSolanaWallets } from '@privy-io/react-auth/solana'
 import { PROGRAM_ERRORS, questProgram } from '@quest/sdk'
 import { useMe } from './queries'
@@ -26,11 +27,19 @@ export function useWallet() {
 
 /** Sign and send instructions with the user's wallet, then wait for confirmation. */
 export function useSendTransaction() {
-  const { wallet } = useWallet()
+  const { wallet, address } = useWallet()
+  const { connectWallet } = usePrivy()
 
   return useCallback(
     async (instructions: TransactionInstruction[]) => {
-      if (!wallet) throw new Error('Your wallet is still loading. Try again in a moment.')
+      if (!wallet) {
+        // An external wallet (Phantom etc.) isn't reconnected automatically; ask for it now.
+        if (address) {
+          connectWallet({ suggestedAddress: address })
+          throw new Error('Connect your wallet, then tap again.')
+        }
+        throw new Error('Your wallet is still loading. Try again in a moment.')
+      }
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
       const tx = new Transaction({ feePayer: new PublicKey(wallet.address), blockhash, lastValidBlockHeight })
       tx.add(...instructions)
@@ -46,7 +55,7 @@ export function useSendTransaction() {
         throw new Error(transactionErrorMessage(err))
       }
     },
-    [wallet],
+    [wallet, address, connectWallet],
   )
 }
 

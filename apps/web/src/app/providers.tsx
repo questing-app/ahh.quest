@@ -10,7 +10,10 @@ import { useMe } from '@/lib/queries'
 import { hasDefaultName } from '@/lib/types'
 import { CLUSTER, RPC_URL } from '@/lib/chain'
 
-const solanaConnectors = toSolanaWalletConnectors()
+// No auto-connect: some injected wallets (MetaMask's Solana support) pop a
+// connect prompt on every page load instead of reconnecting quietly. External
+// wallets are connected on demand when something needs a signature.
+const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: false })
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
