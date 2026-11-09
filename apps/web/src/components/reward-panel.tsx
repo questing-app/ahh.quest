@@ -28,16 +28,16 @@ export function RewardPanel({
   const stake = stakeFor(quest.rewardAmount)
 
   return (
-    <div className="rounded-[10px] border border-rule bg-paper-raised p-6 md:sticky md:top-6">
-      <p className="text-sm font-semibold text-ink-soft">Reward</p>
+    <div className="mx-4 rounded-[16px] bg-paper-raised p-5">
+      <p className="text-[13px] uppercase tracking-wide text-ink-soft">Reward</p>
       <p className="mt-1 leading-none">
-        <span className="tabular font-display text-[52px] text-moss">
+        <span className="tabular font-display text-[46px] text-moss">
           {formatUnits(quest.rewardAmount, token.decimals)}
         </span>{' '}
         <span className="text-lg font-semibold">{token.symbol}</span>
       </p>
 
-      <dl className="tabular mt-6 space-y-2.5 border-t border-rule pt-5 text-[15px]">
+      <dl className="tabular mt-5 space-y-2.5 border-t-[0.5px] border-ink/15 pt-4 text-[15px]">
         <div className="flex justify-between gap-4">
           <dt className="text-ink-soft">Fee (2.5%)</dt>
           <dd>−{amount(fee)}</dd>
@@ -52,7 +52,7 @@ export function RewardPanel({
         </div>
       </dl>
 
-      <div className="mt-6">
+      <div className="mt-5">
         <PanelAction quest={quest} claims={claims} me={me} stake={stake} stakeLabel={amount(stake)} />
       </div>
     </div>
@@ -169,7 +169,7 @@ function PanelAction({
         <p className="mt-3 text-sm text-ink-soft">
           {left ? `You have ${left} to send your video.` : 'Your proof window has closed.'}
         </p>
-        <div className="mt-5 border-t border-rule pt-4">
+        <div className="mt-4">
           <ConfirmButton
             variant="link"
             label="Give up this quest"

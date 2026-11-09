@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SwitchCamera } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -190,10 +191,10 @@ export default function RecordPage() {
   const tooLong = take ? take.duration > MAX_SECONDS + 1 : false
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-night text-paper-raised">
-      <div className="flex h-14 items-center justify-between px-4">
-        <Link href={`/q/${id}`} className="text-[15px] text-paper-raised/80 hover:text-paper-raised">
-          ✕ Close
+    <div className="flex min-h-[100dvh] flex-col bg-night pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-paper-raised">
+      <div className="chrome flex h-11 items-center justify-between px-4">
+        <Link href={`/q/${id}`} className="press text-[17px] text-paper-raised">
+          Close
         </Link>
         {claim && stage !== 'sent' && (
           <p className="text-sm text-paper-raised/70">
@@ -218,7 +219,7 @@ export default function RecordPage() {
           <>
             {/* The quest stays on screen while filming, like a teleprompter. */}
             {stage !== 'sent' && (
-              <div className="rounded-[10px] bg-black/55 px-4 py-3.5">
+              <div className="rounded-[16px] bg-black/55 px-4 py-3.5">
                 <p className="text-[17px] font-medium leading-snug">{quest.data.description}</p>
                 <p className="mt-1.5 text-sm text-paper-raised/65">
                   One take, {MIN_SECONDS} to {MAX_SECONDS} seconds. Make sure the whole thing is in frame.
@@ -233,7 +234,7 @@ export default function RecordPage() {
                   autoPlay
                   muted
                   playsInline
-                  className={`aspect-[9/16] w-full rounded-[10px] bg-black object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
+                  className={`aspect-[9/16] w-full rounded-[16px] bg-black object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
                 />
               )}
 
@@ -244,7 +245,7 @@ export default function RecordPage() {
               )}
 
               {(stage === 'review' || stage === 'sending') && take && (
-                <video src={take.url} controls playsInline className="aspect-[9/16] w-full rounded-[10px] bg-black object-contain" />
+                <video src={take.url} controls playsInline className="aspect-[9/16] w-full rounded-[16px] bg-black object-contain" />
               )}
 
               {stage === 'setup' && (
@@ -296,15 +297,20 @@ export default function RecordPage() {
                   type="button"
                   onClick={stage === 'live' ? startRecording : stopRecording}
                   aria-label={stage === 'live' ? 'Start recording' : 'Stop recording'}
-                  className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-paper-raised"
+                  className="press-scale mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-paper-raised"
                 >
                   <span
                     className={`block bg-wax transition-all ${stage === 'recording' ? 'h-7 w-7 rounded-md' : 'h-14 w-14 rounded-full'}`}
                   />
                 </button>
                 {stage === 'live' ? (
-                  <button type="button" onClick={flipCamera} className="justify-self-end text-sm text-paper-raised/75 hover:text-paper-raised">
-                    Flip camera
+                  <button
+                    type="button"
+                    onClick={flipCamera}
+                    aria-label="Flip camera"
+                    className="press-scale flex h-12 w-12 items-center justify-center justify-self-end rounded-full bg-paper-raised/15"
+                  >
+                    <SwitchCamera className="h-6 w-6" aria-hidden />
                   </button>
                 ) : (
                   <span className="justify-self-end text-sm text-paper-raised/60">
@@ -330,7 +336,7 @@ export default function RecordPage() {
                   <button
                     type="button"
                     onClick={retake}
-                    className="rounded-md border border-paper-raised/30 px-5 py-3 text-[15px] font-semibold hover:border-paper-raised/70"
+                    className="press-scale h-[50px] rounded-[14px] bg-paper-raised/15 px-5 text-[17px] font-semibold"
                   >
                     Record again
                   </button>

@@ -1,9 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { SiteHeader } from '@/components/site-header'
+import { Check } from 'lucide-react'
+import { NavBar } from '@/components/nav-bar'
+import { TAB_BAR_SPACE } from '@/components/tab-bar'
+import { SectionHeader, groupedList } from '@/components/notice'
 import { button } from '@/components/button'
 import { createQuestIx, fetchConfig, sha256 } from '@quest/sdk'
 import { useApi, useSession } from '@/lib/session'
@@ -115,217 +119,205 @@ export default function PostQuestPage() {
 
   if (ready && !authenticated) {
     return (
-      <>
-        <SiteHeader />
-        <main className="mx-auto max-w-page px-4 py-16 md:px-8">
-          <h1 className="font-display text-[36px] leading-tight">Sign in to post a quest</h1>
-          <p className="mt-3 text-[17px] text-ink-soft">You’ll need a wallet to hold the reward. We’ll make one for you if you don’t have one.</p>
-          <button type="button" onClick={login} className={`${button()} mt-7`}>
+      <div className={TAB_BAR_SPACE}>
+        <NavBar title="New Quest" large />
+        <main className="flex flex-col items-center px-8 pt-4 text-center">
+          <Image src="/art/wallet.png" alt="" width={390} height={400} className="art-fade w-full max-w-[240px]" />
+          <p className="mt-2 text-[17px] leading-relaxed text-ink-soft">
+            Sign in to post a quest. You’ll need a wallet to hold the reward, and we’ll make one for you if you
+            don’t have one.
+          </p>
+          <button type="button" onClick={login} className={`${button()} mt-6 w-full`}>
             Sign in
           </button>
         </main>
-      </>
+      </div>
     )
   }
 
   const error = touched ? problems[step] : null
   const fee = units ? feeFor(units) : 0
+  const field = 'w-full rounded-[12px] bg-paper-raised px-4 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40'
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto grid max-w-page gap-8 px-4 py-8 md:grid-cols-[200px_minmax(0,560px)] md:gap-16 md:px-8 md:py-12">
-        <nav aria-label="Steps">
-          <p className="text-sm text-ink-soft md:hidden">
-            Step {step + 1} of {STEPS.length}
-          </p>
-          <ol className="hidden space-y-3 text-[15px] md:block">
-            {STEPS.map((label, i) => (
-              <li key={label}>
-                <button
-                  type="button"
-                  disabled={i > step}
-                  onClick={() => setStep(i)}
-                  aria-current={i === step ? 'step' : undefined}
-                  className={`border-l-2 pl-3 text-left ${
-                    i === step ? 'border-moss font-semibold text-ink' : 'border-transparent text-ink-soft disabled:text-ink-soft/50'
-                  }`}
-                >
-                  {label}
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
+    <div className="pb-[calc(49px+env(safe-area-inset-bottom)+96px)]">
+      <NavBar
+        title={STEPS[step]}
+        back={step > 0}
+        onBack={() => setStep((s) => Math.max(0, s - 1))}
+        right={<span className="tabular text-[15px] text-ink-soft">{step + 1}/{STEPS.length}</span>}
+      />
+      <div className="mx-4 mt-1 flex gap-1.5" aria-hidden>
+        {STEPS.map((label, i) => (
+          <span key={label} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= step ? 'bg-moss' : 'bg-ink/10'}`} />
+        ))}
+      </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (step < STEPS.length - 1) next()
-            else post.mutate()
-          }}
-        >
-          <h1 className="font-display text-[34px] leading-tight md:text-[40px]">
-            {['What’s the dare?', 'What’s it worth?', 'Who can take it?', 'Look right?'][step]}
-          </h1>
+      <form
+        id="post-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (step < STEPS.length - 1) next()
+          else post.mutate()
+        }}
+      >
+        <h1 className="px-4 pt-5 font-display text-[30px] leading-tight text-moss">
+          {['What’s the dare?', 'What’s it worth?', 'Who can take it?', 'Look right?'][step]}
+        </h1>
 
-          {step === 0 && (
-            <div className="mt-6">
-              <label htmlFor="description" className="text-[15px] font-semibold">
-                Describe exactly what counts as done
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                maxLength={MAX_LENGTH}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Be specific. The video is checked against these words."
-                className="mt-2 w-full resize-none rounded-md border border-rule bg-paper-raised px-4 py-3 text-[17px] placeholder:text-ink-soft/70 focus:border-moss focus:outline-none"
-              />
-              <p className="tabular mt-1 text-right text-sm text-ink-soft">
-                {description.length}/{MAX_LENGTH}
-              </p>
-              <p className="mt-4 text-sm text-ink-soft">Need a spark?</p>
-              <div className="mt-2 flex flex-col items-start gap-2">
-                {EXAMPLES.map((example) => (
+        {step === 0 && (
+          <div className="mt-4 px-4">
+            <label htmlFor="description" className="sr-only">
+              Describe exactly what counts as done
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              maxLength={MAX_LENGTH}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              placeholder="Describe exactly what counts as done. The video is checked against these words."
+              className={`${field} resize-none py-3 leading-snug`}
+            />
+            <p className="tabular mt-1 text-right text-[13px] text-ink-soft">
+              {description.length}/{MAX_LENGTH}
+            </p>
+          </div>
+        )}
+        {step === 0 && (
+          <>
+            <SectionHeader>Need a spark?</SectionHeader>
+            <ul className={groupedList}>
+              {EXAMPLES.map((example) => (
+                <li key={example}>
                   <button
-                    key={example}
                     type="button"
                     onClick={() => setDescription(example)}
-                    className="text-left text-[15px] text-moss underline-offset-4 hover:underline"
+                    className="w-full px-4 py-3 text-left text-[15px] leading-snug text-moss transition-colors active:bg-paper-sunk"
                   >
                     {example}
                   </button>
-                ))}
-              </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {step === 1 && (
+          <div className="mt-4 px-4">
+            <TokenBalance />
+
+            <label htmlFor="amount" className="sr-only">
+              Reward
+            </label>
+            <div className="mt-6 flex items-baseline justify-center gap-2 rounded-[16px] bg-paper-raised px-4 py-6">
+              <input
+                id="amount"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                placeholder="0"
+                size={Math.max(1, amount.length)}
+                className="tabular min-w-[1ch] max-w-full bg-transparent text-center font-display text-[56px] leading-none text-moss placeholder:text-ink/20 focus:outline-none"
+              />
+              <span className="text-[20px] font-semibold text-ink-soft">{token.symbol}</span>
             </div>
-          )}
-
-          {step === 1 && (
-            <div className="mt-6">
-              <TokenBalance />
-
-              <label htmlFor="amount" className="mt-6 block text-[15px] font-semibold">
-                Reward
-              </label>
-              <div className="mt-2 flex items-baseline gap-3 border-b-2 border-ink/20 focus-within:border-moss">
-                <input
-                  id="amount"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
-                  placeholder="0"
-                  className="tabular w-full bg-transparent py-2 font-display text-[44px] leading-none focus:outline-none"
-                />
-                <span className="text-lg font-semibold">{token.symbol}</span>
-              </div>
-              {units !== null && units >= MIN_REWARD_UNITS && (
-                <p className="tabular mt-3 text-[15px] text-ink-soft">
-                  The winner gets {formatUnits(units - fee, token.decimals)} {token.symbol} after the 2.5% fee.
-                </p>
-              )}
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="mt-6 space-y-8">
-              <fieldset>
-                <legend className="text-[15px] font-semibold">Who can take it</legend>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Choice selected={questType === 'open'} onSelect={() => setQuestType('open')} title="Anyone" detail="It shows up in the public list." />
-                  <Choice selected={questType === 'direct'} onSelect={() => setQuestType('direct')} title="One person" detail="Only the wallet you name can claim it." />
-                </div>
-              </fieldset>
-
-              {questType === 'open' ? (
-                <p className="text-[15px] text-ink-soft">
-                  One person takes it at a time. If they give up or run out of time, it opens again.
-                </p>
-              ) : (
-                <div>
-                  <label htmlFor="target" className="text-[15px] font-semibold">
-                    Their Solana wallet address
-                  </label>
-                  <input
-                    id="target"
-                    value={target}
-                    onChange={(e) => setTarget(e.target.value)}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="mt-2 w-full rounded-md border border-rule bg-paper-raised px-4 py-3 font-mono text-[15px] focus:border-moss focus:outline-none"
-                  />
-                </div>
-              )}
-
-              <fieldset>
-                <legend className="text-[15px] font-semibold">How long it stays open</legend>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {TIME_LIMITS.map((option) => (
-                    <button
-                      key={option.label}
-                      type="button"
-                      aria-pressed={timeLimit === option.hours}
-                      onClick={() => setTimeLimit(option.hours)}
-                      className={`rounded-md border px-4 py-2 text-[15px] ${timeLimit === option.hours ? 'border-moss bg-moss-pale font-semibold' : 'border-rule hover:border-ink/40'}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </div>
-          )}
-
-          {step === 3 && units !== null && (
-            <dl className="mt-6 divide-y divide-rule border-y border-rule text-[15px]">
-              <Summary label="Challenge" onEdit={() => setStep(0)}>
-                {description.trim()}
-              </Summary>
-              <Summary label="Reward" onEdit={() => setStep(1)}>
-                {formatUnits(units, token.decimals)} {token.symbol}
-                <span className="text-ink-soft"> (winner gets {formatUnits(units - fee, token.decimals)})</span>
-              </Summary>
-              <Summary label="Who" onEdit={() => setStep(2)}>
-                {questType === 'open' ? 'Anyone' : shortAddress(target.trim())}
-              </Summary>
-              <Summary label="Open for" onEdit={() => setStep(2)}>
-                {TIME_LIMITS.find((t) => t.hours === timeLimit)?.label}
-              </Summary>
-            </dl>
-          )}
-
-          {error && (
-            <p role="alert" className="mt-4 text-[15px] text-wax">
-              {error}
-            </p>
-          )}
-          {post.error && (
-            <p role="alert" className="mt-4 text-[15px] text-wax">
-              {errorMessage(post.error)}
-            </p>
-          )}
-
-          <div className="mt-10 flex gap-3">
-            {step > 0 && (
-              <button type="button" onClick={() => setStep((s) => s - 1)} className={button('outline')}>
-                Back
-              </button>
+            {units !== null && units >= MIN_REWARD_UNITS && (
+              <p className="tabular mt-3 text-center text-[15px] text-ink-soft">
+                Winner gets {formatUnits(units - fee, token.decimals)} {token.symbol} after the 2.5% fee
+              </p>
             )}
-            <button type="submit" disabled={post.isPending} className={button()}>
-              {step < STEPS.length - 1
-                ? 'Next'
-                : phase === 'signing'
-                  ? 'Confirm in your wallet…'
-                  : post.isPending
-                    ? 'Posting…'
-                    : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
-            </button>
           </div>
-        </form>
-      </main>
-    </>
+        )}
+
+        {step === 2 && (
+          <>
+            <SectionHeader>Who can take it</SectionHeader>
+            <div className={groupedList} role="radiogroup">
+              <Choice selected={questType === 'open'} onSelect={() => setQuestType('open')} title="Anyone" detail="Shows up in the public list" />
+              <Choice selected={questType === 'direct'} onSelect={() => setQuestType('direct')} title="One person" detail="Only the wallet you name can claim it" />
+            </div>
+            {questType === 'open' ? (
+              <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
+                One person takes it at a time. If they give up or run out of time, it opens again.
+              </p>
+            ) : (
+              <div className="px-4 pt-3">
+                <label htmlFor="target" className="sr-only">
+                  Their Solana wallet address
+                </label>
+                <input
+                  id="target"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="Their Solana wallet address"
+                  className={`${field} h-[48px] font-mono !text-[16px]`}
+                />
+              </div>
+            )}
+
+            <SectionHeader>Stays open for</SectionHeader>
+            <div className="mx-4 flex rounded-[10px] bg-ink/[0.07] p-0.5" role="radiogroup">
+              {TIME_LIMITS.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={timeLimit === option.hours}
+                  onClick={() => setTimeLimit(option.hours)}
+                  className={`chrome h-[32px] flex-1 rounded-[8px] text-[13px] transition-all ${
+                    timeLimit === option.hours ? 'bg-paper-raised font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.1)]' : 'text-ink'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {step === 3 && units !== null && (
+          <div className={`${groupedList} mt-5`}>
+            <Summary label="Challenge" onEdit={() => setStep(0)}>
+              {description.trim()}
+            </Summary>
+            <Summary label="Reward" onEdit={() => setStep(1)}>
+              {formatUnits(units, token.decimals)} {token.symbol}
+              <span className="block text-[13px] text-ink-soft">Winner gets {formatUnits(units - fee, token.decimals)}</span>
+            </Summary>
+            <Summary label="Who" onEdit={() => setStep(2)}>
+              {questType === 'open' ? 'Anyone' : shortAddress(target.trim())}
+            </Summary>
+            <Summary label="Open for" onEdit={() => setStep(2)}>
+              {TIME_LIMITS.find((t) => t.hours === timeLimit)?.label}
+            </Summary>
+          </div>
+        )}
+
+        {(error || post.error) && (
+          <p role="alert" className="px-6 pt-4 text-center text-[15px] text-wax">
+            {error ?? errorMessage(post.error)}
+          </p>
+        )}
+      </form>
+
+      {/* Primary action sits just above the tab bar, where the thumb is. */}
+      <div className="chrome fixed inset-x-0 bottom-[calc(49px+env(safe-area-inset-bottom))] z-30 bg-gradient-to-t from-paper via-paper to-paper/0 px-4 pb-3 pt-6">
+        <button type="submit" form="post-form" disabled={post.isPending} className={`${button()} w-full`}>
+          {step < STEPS.length - 1
+            ? 'Continue'
+            : phase === 'signing'
+              ? 'Confirm in your wallet…'
+              : post.isPending
+                ? 'Posting…'
+                : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -333,26 +325,26 @@ function Choice({ selected, onSelect, title, detail }: { selected: boolean; onSe
   return (
     <button
       type="button"
-      aria-pressed={selected}
+      role="radio"
+      aria-checked={selected}
       onClick={onSelect}
-      className={`rounded-md border px-4 py-3.5 text-left ${selected ? 'border-moss bg-moss-pale' : 'border-rule bg-paper-raised hover:border-ink/40'}`}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk"
     >
-      <span className="block text-[15px] font-semibold">{title}</span>
-      <span className="mt-0.5 block text-sm text-ink-soft">{detail}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[17px]">{title}</span>
+        <span className="mt-0.5 block text-[13px] text-ink-soft">{detail}</span>
+      </span>
+      {selected && <Check className="h-5 w-5 shrink-0 text-moss" strokeWidth={2.75} aria-hidden />}
     </button>
   )
 }
 
 function Summary({ label, onEdit, children }: { label: string; onEdit: () => void; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[96px_minmax(0,1fr)_auto] gap-4 py-4">
-      <dt className="text-ink-soft">{label}</dt>
-      <dd>{children}</dd>
-      <dd>
-        <button type="button" onClick={onEdit} className="text-sm text-moss underline-offset-4 hover:underline">
-          Edit
-        </button>
-      </dd>
-    </div>
+    <button type="button" onClick={onEdit} className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk">
+      <span className="w-[84px] shrink-0 text-[15px] text-ink-soft">{label}</span>
+      <span className="min-w-0 flex-1 text-[15px] leading-snug">{children}</span>
+      <span className="shrink-0 text-[15px] text-moss">Edit</span>
+    </button>
   )
 }

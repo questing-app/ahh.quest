@@ -10,22 +10,24 @@
   },
   "dependencies": {
     "@privy-io/react-auth": "^1.71.0",
-    "@solana/web3.js": "^1.91.0",
+    "@quest/sdk": "workspace:*",
     "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/web3.js": "^1.91.0",
     "@tanstack/react-query": "^5.28.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.0",
     "lucide-react": "^0.359.0",
     "next": "14.1.0",
+    "qrcode": "1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.0",
-    "zustand": "^4.5.0",
-    "@quest/sdk": "workspace:*"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.17",

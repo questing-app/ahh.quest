@@ -7,10 +7,25 @@
     background: theme('colors.paper.DEFAULT');
     color: theme('colors.ink.DEFAULT');
     -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     font-family: theme('fontFamily.sans');
+    letter-spacing: -0.01em;
+    touch-action: manipulation;
+  }
+
+  /* iOS zooms into inputs under 16px; keep them at 17px like native fields. */
+  input,
+  textarea,
+  select {
+    font-size: 17px;
+  }
+
+  a,
+  button {
+    -webkit-touch-callout: none;
   }
 
   :focus-visible {
@@ -23,9 +38,44 @@
   }
 }
 
+/* Desktop (mouse + hover) gets the "open on your phone" page instead of the app. */
+.desktop-gate {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .desktop-gate {
+    display: flex;
+  }
+  .app-root {
+    display: none;
+  }
+}
+
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Bars and controls shouldn't select text or show the long-press menu. */
+  .chrome {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Native-feeling press: dim on touch instead of hover colours. */
+  .press {
+    transition: opacity 120ms ease, transform 120ms ease, background-color 120ms ease;
+  }
+  .press:active {
+    opacity: 0.55;
+  }
+
+  .press-scale {
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+  .press-scale:active {
+    transform: scale(0.97);
+    opacity: 0.85;
   }
 
   /* Soft torn-paper fade under the illustrations, like the iOS onboarding. */

@@ -1,18 +1,15 @@
 import type { Metadata, Viewport } from 'next'
-import { Caprasimo, Public_Sans } from 'next/font/google'
+import { Caprasimo } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { TabBar } from '@/components/tab-bar'
+import { DesktopGate } from '@/components/desktop-gate'
 
 const display = Caprasimo({
   subsets: ['latin'],
   weight: '400',
   adjustFontFallback: false,
   variable: '--font-display',
-})
-
-const body = Public_Sans({
-  subsets: ['latin'],
-  variable: '--font-body',
 })
 
 export const metadata: Metadata = {
@@ -28,17 +25,33 @@ export const metadata: Metadata = {
     images: ['/art/complete.png'],
     type: 'website',
   },
+  appleWebApp: {
+    capable: true,
+    title: 'Quest',
+    statusBarStyle: 'default',
+  },
+  formatDetection: { telephone: false },
 }
 
 export const viewport: Viewport = {
   themeColor: '#F7F1E3',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body className="min-h-screen bg-paper text-ink antialiased">
-        <Providers>{children}</Providers>
+    <html lang="en" className={display.variable}>
+      <body className="min-h-[100dvh] bg-paper text-ink antialiased">
+        <DesktopGate />
+        <div className="app-root">
+          <Providers>
+            {children}
+            <TabBar />
+          </Providers>
+        </div>
       </body>
     </html>
   )

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useSolanaWallets } from '@privy-io/react-auth/solana'
 import { NameForm } from '@/components/name-form'
 import { button } from '@/components/button'
@@ -45,43 +46,54 @@ export default function WelcomePage() {
   const last = index === PANELS.length - 1
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-[480px] flex-col px-4 pb-10">
-      <header className="flex h-16 items-center justify-between">
-        <span className="font-display text-[28px] leading-none text-moss">Quest</span>
+    <main className="chrome mx-auto flex min-h-[100dvh] max-w-[520px] flex-col overflow-x-hidden px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-[env(safe-area-inset-top)]">
+      <header className="flex h-11 items-center justify-between">
+        <div className="flex gap-1.5" aria-label={`Step ${index + 1} of ${PANELS.length}`}>
+          {PANELS.map((p, i) => (
+            <span
+              key={p.title}
+              className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-5 bg-moss' : 'w-1.5 bg-ink/20'}`}
+            />
+          ))}
+        </div>
         {!last && (
-          <Link href="/" className="text-sm text-ink-soft hover:text-ink">
+          <Link href="/" className="press text-[17px] text-moss">
             Skip
           </Link>
         )}
       </header>
 
-      <Image src={panel.art} alt={panel.alt} width={390} height={360} priority className="art-fade -mx-4 w-[calc(100%+2rem)] max-w-none" />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={index}
+          className="flex flex-1 flex-col"
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
+          transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <Image src={panel.art} alt={panel.alt} width={390} height={360} priority className="art-fade -mx-6 w-[calc(100%+3rem)] max-w-none" />
+          <div className="mt-1 text-center">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-moss/80">Onboarding quest</p>
+            <h1 className="mt-2 font-display text-[34px] leading-none text-moss">{panel.title}</h1>
+            <p className="mx-auto mt-3 max-w-[22rem] text-[17px] leading-relaxed text-ink-soft">{panel.body}</p>
+          </div>
+        </motion.div>
+      </AnimatePresence>
 
-      <div className="mt-2 flex-1 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-moss/80">Onboarding quest</p>
-        <h1 className="mt-3 font-display text-[36px] leading-none text-moss">{panel.title}</h1>
-        <p className="mx-auto mt-4 max-w-[22rem] text-[17px] leading-relaxed text-ink-soft">{panel.body}</p>
-
-        <div className="mx-auto mt-6 max-w-[22rem] text-left">
-          {index === 0 && <WalletStep onNext={() => setIndex(1)} />}
-          {index === 1 && <ProfileStep onNext={() => setIndex(2)} />}
-          {index === 2 && (
-            <button type="button" onClick={() => setIndex(3)} className={`${button()} w-full`}>
-              Got it
-            </button>
-          )}
-          {last && (
-            <Link href="/" className={`${button()} w-full`}>
-              Find a quest
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-8 flex justify-center gap-2.5" aria-label={`Step ${index + 1} of ${PANELS.length}`}>
-        {PANELS.map((p, i) => (
-          <span key={p.title} className={`h-1.5 w-1.5 rounded-full ${i === index ? 'bg-moss' : 'bg-ink/20'}`} />
-        ))}
+      <div className="mt-6">
+        {index === 0 && <WalletStep onNext={() => setIndex(1)} />}
+        {index === 1 && <ProfileStep onNext={() => setIndex(2)} />}
+        {index === 2 && (
+          <button type="button" onClick={() => setIndex(3)} className={`${button()} w-full`}>
+            Got it
+          </button>
+        )}
+        {last && (
+          <Link href="/" className={`${button()} w-full`}>
+            Find a quest
+          </Link>
+        )}
       </div>
     </main>
   )
@@ -121,7 +133,7 @@ function ProfileStep({ onNext }: { onNext: () => void }) {
     <>
       <NameForm user={me} onDone={onNext} submitLabel="Save" />
       {!hasDefaultName(me) && (
-        <button type="button" onClick={onNext} className="mt-3 text-sm text-ink-soft underline underline-offset-4">
+        <button type="button" onClick={onNext} className="press mt-3 w-full py-2 text-center text-[15px] text-moss">
           Keep {me.username}
         </button>
       )}

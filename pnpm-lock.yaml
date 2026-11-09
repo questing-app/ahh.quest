@@ -105,6 +105,9 @@ importers:
       next:
         specifier: 14.1.0
         version: 14.1.0(@babel/core@8.1.0)(react-dom@18.3.1)(react@18.3.1)
+      qrcode:
+        specifier: 1.5.4
+        version: 1.5.4
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -121,6 +124,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
+      '@types/qrcode':
+        specifier: 1.5.5
+        version: 1.5.5
       '@types/react':
         specifier: ^18.2.0
         version: 18.3.31
@@ -6106,6 +6112,12 @@ packages:
 
   /@types/prop-types@15.7.15:
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
+
+  /@types/qrcode@1.5.5:
+    resolution: {integrity: sha512-CdfBi/e3Qk+3Z/fXYShipBT13OJ2fDO2Q2w5CIP5anLTLIndQG9z6P1cnm+8zCWSpm5dnxMFd/uREtb0EXuQzg==}
+    dependencies:
+      '@types/node': 20.19.43
+    dev: true
 
   /@types/react-dom@18.3.7(@types/react@18.3.31):
     resolution: {integrity: sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ==}

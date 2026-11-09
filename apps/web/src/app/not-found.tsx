@@ -1,12 +1,13 @@
 import Link from 'next/link'
+import { button } from '@/components/button'
 
 export default function NotFound() {
   return (
-    <main className="mx-auto max-w-page px-4 py-24 md:px-8">
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center px-8 text-center">
       <p className="font-display text-[28px] leading-none text-moss">Quest</p>
-      <h1 className="mt-10 font-display text-[40px] leading-tight">This page wandered off.</h1>
-      <Link href="/" className="mt-6 inline-block text-[17px] font-semibold text-moss underline underline-offset-4">
-        Back to open quests
+      <h1 className="mt-8 font-display text-[32px] leading-tight">This page wandered off.</h1>
+      <Link href="/" className={`${button()} mt-8 w-full max-w-[320px]`}>
+        Back to quests
       </Link>
     </main>
   )

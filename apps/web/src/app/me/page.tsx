@@ -2,9 +2,12 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { SiteHeader } from '@/components/site-header'
+import Image from 'next/image'
+import { ChevronRight } from 'lucide-react'
+import { NavBar } from '@/components/nav-bar'
+import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Avatar } from '@/components/avatar'
-import { Notice } from '@/components/notice'
+import { Notice, SectionHeader, groupedList } from '@/components/notice'
 import { NameForm } from '@/components/name-form'
 import { QuestRow } from '@/components/quest-row'
 import { button } from '@/components/button'
@@ -24,15 +27,18 @@ export default function ProfilePage() {
 
   if (ready && !authenticated) {
     return (
-      <>
-        <SiteHeader />
-        <main className="mx-auto max-w-page px-4 py-16 md:px-8">
-          <p className="text-[17px]">Sign in to see your quests.</p>
-          <button type="button" onClick={login} className={`${button()} mt-6`}>
+      <div className={TAB_BAR_SPACE}>
+        <NavBar title="You" large />
+        <main className="flex flex-col items-center px-8 pt-4 text-center">
+          <Image src="/art/profile.png" alt="" width={390} height={320} className="art-fade w-full max-w-[260px]" />
+          <p className="mt-2 text-[17px] leading-relaxed text-ink-soft">
+            Sign in to post quests, take them on, and keep what you win.
+          </p>
+          <button type="button" onClick={login} className={`${button()} mt-6 w-full`}>
             Sign in
           </button>
         </main>
-      </>
+      </div>
     )
   }
 
@@ -46,94 +52,112 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto max-w-page px-4 py-10 md:px-8">
+    <div className={TAB_BAR_SPACE}>
+      <NavBar title="You" large />
+      <main>
         {me.error && <Notice tone="error">{errorMessage(me.error)}</Notice>}
         {!user && !me.error && <Notice>Loading…</Notice>}
 
         {user && (
-          <section className="flex flex-col gap-6 border-b border-rule pb-8 sm:flex-row sm:items-start">
-            <Avatar person={user} size={72} />
-            <div className="min-w-0 flex-1">
+          <>
+            <section className="mx-4 flex flex-col items-center rounded-[16px] bg-paper-raised px-5 pb-5 pt-6 text-center">
+              <Avatar person={user} size={84} />
               {editing ? (
-                <div className="max-w-md">
+                <div className="mt-4 w-full text-left">
                   <NameForm user={user} onDone={() => setEditing(false)} />
                 </div>
               ) : (
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <h1 className="font-display text-[40px] leading-none">{displayName(user)}</h1>
-                  <button type="button" onClick={() => setEditing(true)} className="text-sm text-moss underline-offset-4 hover:underline">
-                    Change name
+                <>
+                  <h1 className="mt-3 max-w-full truncate font-display text-[28px] leading-tight">{displayName(user)}</h1>
+                  <button type="button" onClick={() => setEditing(true)} className="press mt-1 text-[15px] text-moss">
+                    Edit name
                   </button>
-                </div>
+                </>
               )}
-              <p className="mt-3 text-[15px] text-ink-soft">
-                Wallet <span className="font-mono text-ink">{shortAddress(user.pubkey)}</span>{' '}
-                <button type="button" onClick={copyAddress} className="ml-1 text-moss underline-offset-4 hover:underline">
-                  {copied ? 'Copied' : 'Copy'}
+              <dl className="tabular mt-5 grid w-full grid-cols-3 border-t-[0.5px] border-ink/15 pt-4">
+                <Stat label="Posted" value={user.questsPosted} />
+                <Stat label="Completed" value={user.questsCompleted} />
+                <Stat label="Active" value={user.activeClaims} />
+              </dl>
+            </section>
+
+            <ul className={`${groupedList} mt-6`}>
+              <li>
+                <button
+                  type="button"
+                  onClick={copyAddress}
+                  className="flex min-h-[44px] w-full items-center justify-between gap-4 px-4 py-2.5 text-[17px] transition-colors active:bg-paper-sunk"
+                >
+                  <span>Wallet</span>
+                  <span className="font-mono text-[15px] text-ink-soft">
+                    {copied ? 'Copied' : shortAddress(user.pubkey)}
+                  </span>
                 </button>
-              </p>
-              <p className="tabular mt-1 text-[15px] text-ink-soft">
-                {user.questsPosted} posted · {user.questsCompleted} completed · {user.activeClaims} in progress
-              </p>
-            </div>
-          </section>
+              </li>
+            </ul>
+          </>
         )}
 
         {mine.data && (
-          <div className="grid gap-12 py-10 lg:grid-cols-2 lg:gap-16">
-            <section aria-labelledby="taken-heading">
-              <h2 id="taken-heading" className="font-display text-[26px] leading-none">
-                Quests you took
-              </h2>
-              {mine.data.claims.length === 0 ? (
-                <Notice>
-                  Nothing yet.{' '}
-                  <Link href="/" className="font-semibold text-moss underline underline-offset-4">
-                    Find one
-                  </Link>
-                  .
-                </Notice>
-              ) : (
-                <ul className="mt-4 divide-y divide-rule border-y border-rule">
-                  {mine.data.claims.map((claim) => (
-                    <ClaimRow key={claim.id} claim={claim} />
-                  ))}
-                </ul>
-              )}
-            </section>
+          <>
+            <SectionHeader id="taken-heading">Quests you took</SectionHeader>
+            {mine.data.claims.length === 0 ? (
+              <p className="px-8 text-[13px] text-ink-soft">
+                Nothing yet.{' '}
+                <Link href="/" className="text-moss">
+                  Find one
+                </Link>
+              </p>
+            ) : (
+              <ul className={groupedList} aria-labelledby="taken-heading">
+                {mine.data.claims.map((claim) => (
+                  <ClaimRow key={claim.id} claim={claim} />
+                ))}
+              </ul>
+            )}
 
-            <section aria-labelledby="posted-heading">
-              <h2 id="posted-heading" className="font-display text-[26px] leading-none">
-                Quests you posted
-              </h2>
-              {mine.data.quests.length === 0 ? (
-                <Notice>
-                  You haven’t posted any.{' '}
-                  <Link href="/post" className="font-semibold text-moss underline underline-offset-4">
-                    Post one
-                  </Link>
-                  .
-                </Notice>
-              ) : (
-                <ul className="mt-4 divide-y divide-rule border-y border-rule">
-                  {mine.data.quests.map((quest) => (
-                    <QuestRow key={quest.id} quest={quest} showCreator={false} />
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
+            <SectionHeader id="posted-heading">Quests you posted</SectionHeader>
+            {mine.data.quests.length === 0 ? (
+              <p className="px-8 text-[13px] text-ink-soft">
+                You haven’t posted any.{' '}
+                <Link href="/post" className="text-moss">
+                  Post one
+                </Link>
+              </p>
+            ) : (
+              <ul className={groupedList} aria-labelledby="posted-heading">
+                {mine.data.quests.map((quest) => (
+                  <QuestRow key={quest.id} quest={quest} showCreator={false} />
+                ))}
+              </ul>
+            )}
+          </>
         )}
 
         {authenticated && (
-          <button type="button" onClick={logout} className="mt-4 text-sm text-ink-soft underline underline-offset-4 hover:text-ink">
-            Sign out
-          </button>
+          <ul className={`${groupedList} mt-8`}>
+            <li>
+              <button
+                type="button"
+                onClick={logout}
+                className="min-h-[44px] w-full px-4 py-2.5 text-center text-[17px] text-wax transition-colors active:bg-paper-sunk"
+              >
+                Sign out
+              </button>
+            </li>
+          </ul>
         )}
       </main>
-    </>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <dd className="text-[20px] font-semibold">{value}</dd>
+      <dt className="text-[12px] text-ink-soft">{label}</dt>
+    </div>
   )
 }
 
@@ -150,18 +174,26 @@ function ClaimRow({ claim }: { claim: MyClaim }) {
   }[claim.status]
 
   return (
-    <li className="py-5">
-      <Link href={`/q/${claim.questId}`} className="text-[17px] font-medium leading-snug hover:underline">
-        {quest?.description ?? 'Quest'}
+    <li>
+      <Link
+        href={`/q/${claim.questId}`}
+        className="flex items-center gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-paper-sunk"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[17px] leading-snug">{quest?.description ?? 'Quest'}</p>
+          <p className={`mt-1 truncate text-[13px] ${claim.status === 'active' ? 'font-semibold text-moss' : 'text-ink-soft'}`}>
+            {status}
+            {quest && ` · ${formatAmount(quest.rewardAmount, quest.rewardMint)}`}
+          </p>
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
       </Link>
-      <p className="mt-1.5 text-sm text-ink-soft">
-        {status}
-        {quest && ` · ${formatAmount(quest.rewardAmount, quest.rewardMint)}`}
-      </p>
       {claim.status === 'active' && left && (
-        <Link href={`/q/${claim.questId}/record`} className={`${button('primary', 'sm')} mt-3`}>
-          Record your proof
-        </Link>
+        <div className="px-4 pb-3.5">
+          <Link href={`/q/${claim.questId}/record`} className={`${button()} w-full`}>
+            Record your proof
+          </Link>
+        </div>
       )}
     </li>
   )

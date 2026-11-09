@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import type { Quest } from '@/lib/types'
 import { displayName } from '@/lib/types'
 import { formatUnits, shortAddress, tokenForMint } from '@/lib/tokens'
@@ -35,18 +36,19 @@ export function QuestRow({ quest, showCreator = true }: { quest: Quest; showCrea
     <li>
       <Link
         href={`/q/${quest.id}`}
-        className="-mx-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-6 rounded-md px-3 py-5 hover:bg-paper-raised"
+        className="flex items-center gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-paper-sunk"
       >
-        <div>
-          <p className="text-[17px] font-medium leading-snug">{quest.description}</p>
-          <p className="mt-1.5 text-sm text-ink-soft">{meta.join(' · ')}</p>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[17px] leading-snug">{quest.description}</p>
+          <p className="mt-1 truncate text-[13px] text-ink-soft">{meta.join(' · ')}</p>
         </div>
-        <p className="text-right leading-none">
-          <span className="tabular font-display text-[28px] text-moss">
+        <p className="shrink-0 text-right leading-none">
+          <span className="tabular font-display text-[22px] text-moss">
             {formatUnits(quest.rewardAmount, token.decimals)}
           </span>
-          <span className="mt-1 block text-xs font-semibold tracking-wide text-ink-soft">{token.symbol}</span>
+          <span className="mt-1 block text-[11px] font-semibold tracking-wide text-ink-soft">{token.symbol}</span>
         </p>
+        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
       </Link>
     </li>
   )

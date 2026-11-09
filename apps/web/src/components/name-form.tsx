@@ -43,13 +43,13 @@ export function NameForm({ user, onDone, submitLabel = 'Save' }: { user: User; o
           autoCapitalize="none"
           spellCheck={false}
           placeholder="e.g. sam.sol"
-          className="min-w-0 flex-1 rounded-md border border-rule bg-paper-raised px-4 py-2.5 text-[17px] focus:border-moss focus:outline-none"
+          className="h-[44px] min-w-0 flex-1 rounded-[10px] bg-paper-sunk px-3.5 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40"
         />
-        <button type="submit" disabled={!valid || save.isPending} className={button('primary', 'sm')}>
+        <button type="submit" disabled={!valid || save.isPending} className={`${button('primary', 'sm')} h-[44px] rounded-[10px]`}>
           {save.isPending ? 'Saving…' : submitLabel}
         </button>
       </div>
-      <p className={`mt-2 text-sm ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
+      <p className={`mt-2 text-[13px] ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
         {save.error ? errorMessage(save.error) : '3 to 30 letters, numbers, dots or underscores.'}
       </p>
     </form>

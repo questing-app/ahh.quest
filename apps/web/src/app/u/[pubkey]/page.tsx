@@ -1,9 +1,10 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { SiteHeader } from '@/components/site-header'
+import { NavBar } from '@/components/nav-bar'
+import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Avatar } from '@/components/avatar'
-import { Notice } from '@/components/notice'
+import { Notice, SectionHeader, groupedList } from '@/components/notice'
 import { QuestRow } from '@/components/quest-row'
 import { useQuestsBy, useUser } from '@/lib/queries'
 import { displayName } from '@/lib/types'
@@ -16,41 +17,35 @@ export default function PublicProfilePage() {
   const quests = useQuestsBy(user.data?.id)
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto max-w-page px-4 py-10 md:px-8">
+    <div className={TAB_BAR_SPACE}>
+      <NavBar title={user.data ? displayName(user.data) : 'Profile'} back />
+      <main>
         {user.isPending && <Notice>Loading…</Notice>}
         {user.error && <Notice tone="error">{errorMessage(user.error)}</Notice>}
 
         {user.data && (
           <>
-            <section className="flex items-center gap-5 border-b border-rule pb-8">
-              <Avatar person={user.data} size={64} />
-              <div>
-                <h1 className="font-display text-[36px] leading-none">{displayName(user.data)}</h1>
-                <p className="tabular mt-2 text-[15px] text-ink-soft">
-                  <span className="font-mono">{shortAddress(user.data.pubkey)}</span> · {user.data.questsPosted} posted ·{' '}
-                  {user.data.questsCompleted} completed
-                </p>
-              </div>
+            <section className="flex flex-col items-center px-4 pt-4 text-center">
+              <Avatar person={user.data} size={84} />
+              <h1 className="mt-3 max-w-full truncate font-display text-[28px] leading-tight">{displayName(user.data)}</h1>
+              <p className="tabular mt-1 text-[15px] text-ink-soft">
+                <span className="font-mono">{shortAddress(user.data.pubkey)}</span> · {user.data.questsPosted} posted ·{' '}
+                {user.data.questsCompleted} completed
+              </p>
             </section>
 
-            <section className="py-10" aria-labelledby="their-quests">
-              <h2 id="their-quests" className="font-display text-[26px] leading-none">
-                Quests posted
-              </h2>
-              {quests.data?.length === 0 && <Notice>None yet.</Notice>}
-              {quests.data && quests.data.length > 0 && (
-                <ul className="mt-4 divide-y divide-rule border-y border-rule">
-                  {quests.data.map((quest) => (
-                    <QuestRow key={quest.id} quest={quest} showCreator={false} />
-                  ))}
-                </ul>
-              )}
-            </section>
+            <SectionHeader id="their-quests">Quests posted</SectionHeader>
+            {quests.data?.length === 0 && <p className="px-8 text-[13px] text-ink-soft">None yet.</p>}
+            {quests.data && quests.data.length > 0 && (
+              <ul className={groupedList} aria-labelledby="their-quests">
+                {quests.data.map((quest) => (
+                  <QuestRow key={quest.id} quest={quest} showCreator={false} />
+                ))}
+              </ul>
+            )}
           </>
         )}
       </main>
-    </>
+    </div>
   )
 }

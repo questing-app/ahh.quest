@@ -9,6 +9,7 @@ import { errorMessage } from '@/lib/api'
 import { Avatar } from './avatar'
 import { button } from './button'
 import { ConfirmButton } from './confirm-button'
+import { SectionHeader, groupedList } from './notice'
 
 export function Attempts({
   questId,
@@ -22,11 +23,9 @@ export function Attempts({
   if (claims.length === 0) return null
 
   return (
-    <section className="mt-12" aria-labelledby="attempts-heading">
-      <h2 id="attempts-heading" className="font-display text-[26px] leading-none">
-        Attempts
-      </h2>
-      <ul className="mt-5 divide-y divide-rule border-y border-rule">
+    <section aria-labelledby="attempts-heading">
+      <SectionHeader id="attempts-heading">Attempts</SectionHeader>
+      <ul className={groupedList}>
         {claims.map((claim) => (
           <Attempt key={claim.id} questId={questId} claim={claim} canDecide={viewerIsCreator && claim.status === 'submitted'} />
         ))}
@@ -50,7 +49,7 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
   const proof = claim.proof
 
   return (
-    <li className="py-6">
+    <li className="p-4">
       <div className="flex items-center gap-3">
         <Avatar person={claim.claimer} size={30} />
         <p className="text-[15px]">
@@ -60,14 +59,14 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
       </div>
 
       {proof && (
-        <div className="mt-4 grid gap-5 sm:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
+        <div className="mt-4 space-y-4">
           <video
             src={proof.videoUrl}
             poster={proof.thumbnailUrl ?? undefined}
             controls
             playsInline
             preload="metadata"
-            className="aspect-[9/16] w-full max-w-[240px] rounded-md bg-night object-cover"
+            className="aspect-[9/16] w-full rounded-[12px] bg-night object-cover"
           />
           <div className="text-[15px] leading-relaxed">
             {proof.aiConfidence !== null ? (
@@ -84,19 +83,20 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
                 <p className="text-sm text-ink-soft">
                   It’s your call. If you don’t decide before the timer runs out, it’s approved automatically.
                 </p>
-                <div className="flex flex-wrap items-start gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => decide.mutate('approve')}
                     disabled={decide.isPending}
-                    className={button('primary', 'sm')}
+                    className={button()}
                   >
-                    Approve and pay
+                    Approve
                   </button>
                   <ConfirmButton
                     label="Reject"
                     question="Reject this video? The reward and their deposit come back to you."
                     confirmLabel="Reject video"
+                    className={button('danger')}
                     pending={decide.isPending}
                     onConfirm={() => decide.mutate('reject')}
                   />

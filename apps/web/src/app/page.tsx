@@ -2,25 +2,36 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { SiteHeader } from '@/components/site-header'
+import { NavBar } from '@/components/nav-bar'
+import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { QuestRow } from '@/components/quest-row'
-import { Notice } from '@/components/notice'
+import { Notice, SectionHeader, groupedList } from '@/components/notice'
 import { button } from '@/components/button'
 import { useFeed } from '@/lib/queries'
 import { useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 
 export default function HomePage() {
-  const { ready, authenticated } = useSession()
+  const { ready, authenticated, login } = useSession()
 
   return (
-    <>
-      <SiteHeader />
-      <main className="mx-auto max-w-page px-4 md:px-8">
+    <div className={TAB_BAR_SPACE}>
+      <NavBar
+        title="Quests"
+        large
+        right={
+          ready && !authenticated ? (
+            <button type="button" onClick={login} className="press text-[17px] text-moss">
+              Sign in
+            </button>
+          ) : null
+        }
+      />
+      <main>
         {ready && !authenticated && <Intro />}
         <Feed />
       </main>
-    </>
+    </div>
   )
 }
 
@@ -28,27 +39,27 @@ function Intro() {
   const { login } = useSession()
 
   return (
-    <section className="grid items-center gap-8 border-b border-rule py-10 md:grid-cols-12 md:gap-12 md:py-14">
+    <section className="mx-4 mt-2 overflow-hidden rounded-[16px] bg-paper-raised">
       <Image
         src="/art/complete.png"
         alt="A knight hands a glowing coin to a wizard beside an open chest of gold"
         width={390}
         height={360}
         priority
-        className="art-fade w-full max-w-[420px] md:col-span-4"
+        className="art-fade mx-auto -mb-6 w-full max-w-[300px]"
       />
-      <div className="md:col-span-8">
-        <h1 className="font-display text-[38px] leading-[1.05] text-moss md:text-[44px] lg:text-[52px]">
+      <div className="px-5 pb-5">
+        <h2 className="font-display text-[28px] leading-[1.1] text-moss">
           Dare someone.
           <br />
           Pay when they prove it.
-        </h1>
-        <p className="mt-5 max-w-[34rem] text-[17px] leading-relaxed text-ink-soft">
-          Post a challenge and put up the reward. Whoever films themselves doing it gets paid once
-          the video is approved. If the video doesn’t pass, the reward goes back to you.
+        </h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+          Post a challenge and put up the reward. Whoever films themselves doing it gets paid once the video is
+          approved. If it doesn’t pass, the reward comes back to you.
         </p>
-        <button type="button" onClick={login} className={`${button()} mt-7`}>
-          Sign in to post a quest
+        <button type="button" onClick={login} className={`${button()} mt-5 w-full`}>
+          Get started
         </button>
       </div>
     </section>
@@ -60,25 +71,22 @@ function Feed() {
   const quests = data?.pages.flat() ?? []
 
   return (
-    <section className="py-10" aria-labelledby="feed-heading">
-      <h2 id="feed-heading" className="font-display text-[30px] leading-none">
-        Open quests
-      </h2>
+    <section aria-labelledby="feed-heading">
+      <SectionHeader id="feed-heading">Open now</SectionHeader>
 
       {isPending && <Notice>Loading quests…</Notice>}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
       {!isPending && !error && quests.length === 0 && (
         <Notice>
           Nothing open right now.{' '}
-          <Link href="/post" className="font-semibold text-moss underline underline-offset-4">
+          <Link href="/post" className="font-semibold text-moss">
             Post the first one
           </Link>
-          .
         </Notice>
       )}
 
       {quests.length > 0 && (
-        <ul className="mt-4 divide-y divide-rule border-t border-rule">
+        <ul className={groupedList}>
           {quests.map((quest) => (
             <QuestRow key={quest.id} quest={quest} />
           ))}
@@ -86,14 +94,16 @@ function Feed() {
       )}
 
       {hasNextPage && (
-        <button
-          type="button"
-          onClick={() => fetchNextPage()}
-          disabled={isFetchingNextPage}
-          className={`${button('outline', 'sm')} mt-6`}
-        >
-          {isFetchingNextPage ? 'Loading…' : 'Show more'}
-        </button>
+        <div className="px-4">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className={`${button('outline')} mt-4 w-full`}
+          >
+            {isFetchingNextPage ? 'Loading…' : 'Show more'}
+          </button>
+        </div>
       )}
     </section>
   )
