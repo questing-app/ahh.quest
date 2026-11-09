@@ -12,7 +12,7 @@ import { button } from '@/components/button'
 import { createQuestIx, fetchConfig, sha256 } from '@quest/sdk'
 import { useApi, useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
-import { program, useSendTransaction, useWallet } from '@/lib/chain'
+import { CLUSTER, program, useSendTransaction, useWallet } from '@/lib/chain'
 import { TokenBalance, useTokenBalance } from '@/components/token-balance'
 import type { Quest } from '@/lib/types'
 import { toast } from '@/components/toast'
@@ -94,7 +94,7 @@ export default function PostQuestPage() {
     writeDraft(empty ? null : { description, amount, questType, target, timeLimit })
   }, [restored, description, amount, questType, target, timeLimit])
 
-  const [phase, setPhase] = useState<'idle' | 'checking' | 'signing' | 'saving'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'funding' | 'signing' | 'saving'>('idle')
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
   const balance = useTokenBalance()
@@ -109,7 +109,7 @@ export default function PostQuestPage() {
       ? 'Enter an amount, like 25 or 0.5.'
       : units < MIN_REWARD_UNITS
         ? `The smallest reward is ${minimum}.`
-        : balance.data !== undefined && units > balance.data
+        : CLUSTER !== 'devnet' && balance.data !== undefined && units > balance.data
           ? 'That’s more than you have in your wallet.'
           : null,
     questType === 'direct' && !WALLET_PATTERN.test(target.trim())
@@ -128,6 +128,14 @@ export default function PostQuestPage() {
       const text = description.trim()
       setPhase('checking')
       await api('/api/quests/check', { json: { description: text } })
+
+      // Testing on devnet: mint whatever test QUEST is missing instead of blocking.
+      const held = balance.data ?? 0
+      if (CLUSTER === 'devnet' && units > held) {
+        setPhase('funding')
+        await api('/api/dev/faucet', { json: { amount: units - held } })
+        await queryClient.invalidateQueries({ queryKey: ['balance'] })
+      }
 
       setPhase('signing')
       const config = await fetchConfig(program)
@@ -258,6 +266,12 @@ export default function PostQuestPage() {
         {step === 1 && (
           <div className="mt-4 px-4">
             <TokenBalance />
+            {CLUSTER === 'devnet' && (
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+                Testing on devnet: post any amount. If you don’t hold enough, the missing test QUEST is added to
+                your wallet when you post.
+              </p>
+            )}
 
             <label htmlFor="amount" className="sr-only">
               Reward
@@ -384,7 +398,9 @@ export default function PostQuestPage() {
             ? 'Continue'
             : phase === 'checking'
               ? 'Checking your quest…'
-              : phase === 'signing'
+              : phase === 'funding'
+                ? 'Adding test QUEST…'
+                : phase === 'signing'
                 ? 'Confirm in your wallet…'
                 : post.isPending
                   ? 'Posting…'
