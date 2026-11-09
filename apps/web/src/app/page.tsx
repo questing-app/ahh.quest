@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
@@ -38,24 +37,19 @@ export default function HomePage() {
 
 function Intro() {
   const { login } = useSession()
-  const reduceMotion = useReducedMotion()
-  // Parallax: the art drifts at half the scroll speed so the copy slides up over it.
-  const { scrollY } = useScroll()
-  const y = useTransform(scrollY, (v) => (reduceMotion ? 0 : Math.max(0, v) * 0.5))
 
   return (
     <section>
-      <div className="relative aspect-[390/360] w-full overflow-hidden">
-        <motion.div style={{ y }} className="absolute inset-0 will-change-transform">
-          <Image
-            src="/art/complete.png"
-            alt="A knight hands a glowing coin to a wizard beside an open chest of gold"
-            fill
-            sizes="100vw"
-            priority
-            className="object-cover"
-          />
-        </motion.div>
+      <div className="relative">
+        <Image
+          src="/art/complete.png"
+          alt="A knight hands a glowing coin to a wizard beside an open chest of gold"
+          width={390}
+          height={360}
+          sizes="100vw"
+          priority
+          className="block h-auto w-full"
+        />
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-paper/0 to-paper" />
       </div>
       <div className="relative -mt-6 px-4 text-center">

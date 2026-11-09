@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { TabBar } from '@/components/tab-bar'
 import { DesktopGate } from '@/components/desktop-gate'
+import { InstallSheet } from '@/components/install-sheet'
 
 const display = Caprasimo({
   subsets: ['latin'],
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Providers>
             {children}
             <TabBar />
+            <InstallSheet />
           </Providers>
         </div>
       </body>

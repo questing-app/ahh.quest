@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import Image from 'next/image'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, SquarePlus } from 'lucide-react'
+import { openInstallSheet, useStandalone } from '@/components/install-sheet'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Avatar } from '@/components/avatar'
@@ -24,6 +25,7 @@ export default function ProfilePage() {
   const mine = useMyFeed()
   const [editing, setEditing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const standalone = useStandalone()
 
   if (ready && !authenticated) {
     return (
@@ -37,6 +39,7 @@ export default function ProfilePage() {
           <button type="button" onClick={login} className={`${button()} mt-6 w-full`}>
             Sign in
           </button>
+          {!standalone && <InstallRow className="mt-8 w-full" />}
         </main>
       </div>
     )
@@ -134,6 +137,8 @@ export default function ProfilePage() {
           </>
         )}
 
+        {!standalone && <InstallRow className="mx-4 mt-8" />}
+
         {authenticated && (
           <ul className={`${groupedList} mt-8`}>
             <li>
@@ -149,6 +154,22 @@ export default function ProfilePage() {
         )}
       </main>
     </div>
+  )
+}
+
+function InstallRow({ className = '' }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={openInstallSheet}
+      className={`flex min-h-[44px] items-center gap-3 rounded-[12px] bg-paper-raised py-2.5 pl-3 pr-2 text-left text-[17px] transition-colors active:bg-paper-sunk ${className}`}
+    >
+      <span className="flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px] bg-moss text-paper-raised">
+        <SquarePlus className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
+      </span>
+      <span className="flex-1">Add to Home Screen</span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
+    </button>
   )
 }
 

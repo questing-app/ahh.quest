@@ -51,6 +51,25 @@
   }
 }
 
+/* Phones: the page itself never moves. The app is a fixed full-screen shell and only
+   its content scrolls, so the bars stay put and nothing bounces past the edges. */
+@media not all and (hover: hover) and (pointer: fine) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .app-root {
+    position: fixed;
+    inset: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
