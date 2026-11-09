@@ -6,6 +6,7 @@ import { processVerificationJob } from '../services/verification.service'
 import { runCrank } from '../cron/crank'
 import type { Env, VerificationMessage } from '../types'
 import { FsBucket, LocalQueue, MemoryKV } from './bindings'
+import { ensureSchema } from '../db/ensure-schema'
 
 const CRANK_INTERVAL_MS = 5 * 60_000
 
@@ -20,7 +21,8 @@ const port = Number(process.env.PORT ?? 8787)
 // Test hook mirroring `wrangler dev --test-scheduled`; only the e2e script sets it.
 const testScheduled = process.env.ENABLE_TEST_SCHEDULED === '1'
 
-serve({
+// Columns must exist before the first query that selects them.
+ensureSchema(env).then(() => serve({
   fetch: async (req) => {
     if (testScheduled && new URL(req.url).pathname === '/__scheduled') {
       await runCrank(env)
@@ -31,6 +33,9 @@ serve({
   port,
 }, () => {
   console.log(`quest-api listening on :${port}`)
+})).catch((err) => {
+  console.error('Schema check failed:', err)
+  process.exit(1)
 })
 
 let cranking = false

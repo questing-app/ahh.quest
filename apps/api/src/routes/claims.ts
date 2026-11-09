@@ -133,8 +133,11 @@ claimRoutes.post('/:claimId/reject', authMiddleware, async (c) => {
   const auth = c.get('auth') as AuthContext
   const { db, claim, quest } = await loadForReview(c, pathParam(c, 'claimId'), auth.userId)
 
+  const body = await c.req.json().catch(() => ({})) as { reason?: unknown }
+  const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 280) || null : null
+
   const txSig = await new OracleService(c.env, db).reject(quest, claim, false)
-  await recordRejected(db, quest, claim, 'creator', txSig, false)
+  await recordRejected(db, quest, claim, 'creator', txSig, false, reason)
 
   return c.json({ success: true, txSignature: txSig })
 })

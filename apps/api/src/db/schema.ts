@@ -82,6 +82,7 @@ export const proofs = sqliteTable('proofs', {
   safetyFlags: text('safety_flags'),
   finalDecision: text('final_decision', { enum: ['approved', 'rejected'] }),
   decidedBy: text('decided_by', { enum: ['ai', 'creator', 'timeout'] }),
+  rejectReason: text('reject_reason'),
   oracleTxSig: text('oracle_tx_sig'),
   createdAt: integer('created_at').notNull(),
 }, (table) => ({

@@ -20,6 +20,8 @@ import {
   type SendStep,
 } from '@/lib/proof'
 import { button } from '@/components/button'
+import { Timeline } from '@/components/timeline'
+import { displayName } from '@/lib/types'
 import { bytesToHex, fetchClaim, hexToBytes, submitProofIx, variant } from '@quest/sdk'
 import { program, useSendTransaction, useWallet } from '@/lib/chain'
 
@@ -290,12 +292,28 @@ export default function RecordPage() {
 
               {stage === 'sent' && (
                 <div className="py-10">
-                  <h1 className="font-display text-[34px] leading-tight text-paper-raised">Proof sent.</h1>
-                  <p className="mt-3 text-[17px] leading-relaxed text-paper-raised/80">
-                    The check takes a minute or two. If it passes, the reward and your deposit go to your
-                    wallet. Close calls go to the poster, who has 24 hours to decide.
+                  <h1 className="font-display text-[34px] leading-tight text-paper-raised">Video sent</h1>
+                  <div className="mt-5 rounded-[16px] bg-paper-raised p-4 text-ink">
+                    <Timeline
+                      stops={[
+                        { label: 'Posted', state: 'done' },
+                        { label: 'Taken', state: 'done' },
+                        { label: 'Video', state: 'done' },
+                        { label: 'Paid', state: 'now' },
+                      ]}
+                    />
+                  </div>
+                  <p className="mt-5 text-[17px] leading-relaxed text-paper-raised/80">
+                    The check usually takes a minute or two. A clear pass pays you the reward plus your deposit. Close
+                    calls go to {displayName(quest.data.creator)}, who has 24 hours, or it approves itself.
                   </p>
-                  <Link href={`/q/${id}`} className={`${button()} mt-7`}>
+                  <Link href="/activity" className={`${button()} mt-7 w-full`}>
+                    See it in Activity
+                  </Link>
+                  <Link
+                    href={`/q/${id}`}
+                    className="press mt-1 flex h-11 w-full items-center justify-center text-[17px] text-paper-raised/85"
+                  >
                     Back to the quest
                   </Link>
                 </div>
@@ -347,16 +365,35 @@ export default function RecordPage() {
                       : `That’s ${Math.round(take.duration)} seconds. Proof can be ${MAX_SECONDS} at most.`}
                   </p>
                 )}
-                <div className="flex gap-3">
-                  <button type="button" onClick={submit} disabled={tooShort || tooLong} className={`${button()} flex-1`}>
-                    Send for checking
+                <h2 className="text-[17px] font-semibold">Check your take</h2>
+                <ul className="mb-5 mt-2 space-y-2 text-[15px]">
+                  <li className="flex items-center gap-2.5">
+                    <Check
+                      className={`h-5 w-5 shrink-0 ${tooShort || tooLong ? 'text-paper-raised/30' : 'text-moss-pale'}`}
+                      strokeWidth={3}
+                      aria-hidden
+                    />
+                    <span className="tabular">
+                      {formatClock(take.duration)} long · needs {formatClock(MIN_SECONDS)}–{formatClock(MAX_SECONDS)}
+                    </span>
+                  </li>
+                  <li className="flex items-center gap-2.5 text-paper-raised/80">
+                    <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center">
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-paper-raised/50" />
+                    </span>
+                    Whole challenge in frame, start to finish?
+                  </li>
+                </ul>
+                <div className="flex flex-col gap-1.5">
+                  <button type="button" onClick={submit} disabled={tooShort || tooLong} className={`${button()} w-full`}>
+                    Send this take
                   </button>
                   <button
                     type="button"
                     onClick={take.picked ? () => { setTake(null); setStage('setup') } : retake}
-                    className="press-scale h-[50px] rounded-[14px] bg-paper-raised/15 px-5 text-[17px] font-semibold"
+                    className="press h-11 w-full text-[17px] font-semibold text-paper-raised/85"
                   >
-                    {take.picked ? 'Choose another' : 'Record again'}
+                    {take.picked ? 'Choose another video' : 'Retake'}
                   </button>
                 </div>
               </div>

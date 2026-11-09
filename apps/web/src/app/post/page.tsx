@@ -154,8 +154,7 @@ export default function PostQuestPage() {
       queryClient.invalidateQueries({ queryKey: ['mine'] })
       queryClient.invalidateQueries({ queryKey: ['balance'] })
       writeDraft(null)
-      toast('Quest posted')
-      router.replace(`/q/${quest.id}`)
+      router.replace(`/q/${quest.id}?posted=1`)
     },
     onSettled: () => setPhase('idle'),
   })

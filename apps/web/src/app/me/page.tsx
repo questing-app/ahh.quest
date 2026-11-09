@@ -3,31 +3,25 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import Image from 'next/image'
-import { ChevronRight, Copy, SquarePlus } from 'lucide-react'
+import { ChevronRight, Inbox, SquarePlus, Wallet } from 'lucide-react'
 import { SkeletonRows } from '@/components/skeleton'
-import { toast } from '@/components/toast'
-import { TokenBalance, useTokenBalance } from '@/components/token-balance'
-import { TOKENS } from '@/lib/tokens'
-import { CLUSTER } from '@/lib/chain'
+import { useTokenBalance } from '@/components/token-balance'
+import { TOKENS, formatUnits } from '@/lib/tokens'
 import { openInstallSheet, useStandalone } from '@/components/install-sheet'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Avatar } from '@/components/avatar'
-import { Notice, SectionHeader, groupedList } from '@/components/notice'
+import { Notice, groupedList } from '@/components/notice'
 import { NameForm } from '@/components/name-form'
-import { QuestRow } from '@/components/quest-row'
 import { button } from '@/components/button'
-import { useMe, useMyFeed } from '@/lib/queries'
+import { useMe } from '@/lib/queries'
 import { useSession } from '@/lib/session'
-import { displayName, type MyClaim } from '@/lib/types'
-import { formatAmount, formatUnits, shortAddress } from '@/lib/tokens'
-import { remaining } from '@/lib/time'
+import { displayName } from '@/lib/types'
 import { errorMessage } from '@/lib/api'
 
 export default function ProfilePage() {
   const { ready, authenticated, login, logout } = useSession()
   const me = useMe()
-  const mine = useMyFeed()
   const [editing, setEditing] = useState(false)
   const standalone = useStandalone()
   const balance = useTokenBalance()
@@ -44,23 +38,18 @@ export default function ProfilePage() {
           <button type="button" onClick={login} className={`${button()} mt-6 w-full`}>
             Sign in
           </button>
-          {!standalone && <InstallRow className="mt-8 w-full" />}
+          {!standalone && (
+            <ul className={`${groupedList} mx-0 mt-8 w-full`}>
+              <InstallRow />
+            </ul>
+          )}
         </main>
       </div>
     )
   }
 
   const user = me.data
-
-  async function copyAddress() {
-    if (!user) return
-    try {
-      await navigator.clipboard.writeText(user.pubkey)
-      toast('Wallet address copied')
-    } catch {
-      toast('Couldn’t copy. Long-press the address instead.')
-    }
-  }
+  const token = TOKENS[0]
 
   return (
     <div className={TAB_BAR_SPACE}>
@@ -92,75 +81,25 @@ export default function ProfilePage() {
               </dl>
             </section>
 
-            <SectionHeader id="wallet-heading">Wallet</SectionHeader>
-            <ul className={groupedList} aria-labelledby="wallet-heading">
-              <li className="flex min-h-[44px] items-center justify-between gap-4 px-4 py-2.5 text-[17px]">
-                <span>Balance</span>
-                <span className="tabular text-ink-soft">
-                  {balance.data === undefined
-                    ? '…'
-                    : `${formatUnits(balance.data, TOKENS[0].decimals)} ${TOKENS[0].symbol}`}
-                </span>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={copyAddress}
-                  className="flex min-h-[44px] w-full items-center justify-between gap-4 px-4 py-2.5 text-[17px] transition-colors active:bg-paper-sunk"
-                >
-                  <span>Address</span>
-                  <span className="flex items-center gap-2 font-mono text-[15px] text-ink-soft">
-                    {shortAddress(user.pubkey)}
-                    <Copy className="h-4 w-4 text-moss" strokeWidth={2.25} aria-label="Copy" />
-                  </span>
-                </button>
-              </li>
+            <ul className={`${groupedList} mt-8`}>
+              <NavRow
+                href="/me/wallet"
+                icon={<Wallet className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />}
+                label="Wallet"
+                detail={
+                  balance.data === undefined ? '…' : `${formatUnits(balance.data, token.decimals)} ${token.symbol}`
+                }
+              />
+              <NavRow
+                href="/activity"
+                icon={<Inbox className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />}
+                label="Your quests"
+                sub="Posted and taken quests are in Activity"
+              />
+              {!standalone && <InstallRow />}
             </ul>
-            {balance.data === 0 && CLUSTER === 'devnet' && (
-              <div className="px-8 pt-2">
-                <TokenBalance />
-              </div>
-            )}
           </>
         )}
-
-        {mine.data && (
-          <>
-            <SectionHeader id="taken-heading">Quests you took</SectionHeader>
-            {mine.data.claims.length === 0 ? (
-              <p className="px-8 text-[13px] text-ink-soft">
-                Nothing yet.{' '}
-                <Link href="/" className="text-moss">
-                  Find one
-                </Link>
-              </p>
-            ) : (
-              <ul className={groupedList} aria-labelledby="taken-heading">
-                {mine.data.claims.map((claim) => (
-                  <ClaimRow key={claim.id} claim={claim} />
-                ))}
-              </ul>
-            )}
-
-            <SectionHeader id="posted-heading">Quests you posted</SectionHeader>
-            {mine.data.quests.length === 0 ? (
-              <p className="px-8 text-[13px] text-ink-soft">
-                You haven’t posted any.{' '}
-                <Link href="/post" className="text-moss">
-                  Post one
-                </Link>
-              </p>
-            ) : (
-              <ul className={groupedList} aria-labelledby="posted-heading">
-                {mine.data.quests.map((quest) => (
-                  <QuestRow key={quest.id} quest={quest} showCreator={false} />
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-
-        {!standalone && <InstallRow className="mx-4 mt-8" />}
 
         {authenticated && (
           <ul className={`${groupedList} mt-8`}>
@@ -180,19 +119,60 @@ export default function ProfilePage() {
   )
 }
 
-function InstallRow({ className = '' }: { className?: string }) {
+function RowIcon({ children }: { children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={openInstallSheet}
-      className={`flex min-h-[44px] items-center gap-3 rounded-[12px] bg-paper-raised py-2.5 pl-3 pr-2 text-left text-[17px] transition-colors active:bg-paper-sunk ${className}`}
-    >
-      <span className="flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px] bg-moss text-paper-raised">
-        <SquarePlus className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
-      </span>
-      <span className="flex-1">Add to Home Screen</span>
-      <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
-    </button>
+    <span className="flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px] bg-moss text-paper-raised">
+      {children}
+    </span>
+  )
+}
+
+function NavRow({
+  href,
+  icon,
+  label,
+  detail,
+  sub,
+}: {
+  href: string
+  icon: React.ReactNode
+  label: string
+  detail?: string
+  sub?: string
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex min-h-[44px] items-center gap-3 py-2.5 pl-3 pr-2 text-[17px] transition-colors active:bg-paper-sunk"
+      >
+        <RowIcon>{icon}</RowIcon>
+        <span className="min-w-0 flex-1">
+          <span className="block">{label}</span>
+          {sub && <span className="block text-[13px] text-ink-soft">{sub}</span>}
+        </span>
+        {detail && <span className="tabular shrink-0 text-ink-soft">{detail}</span>}
+        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
+      </Link>
+    </li>
+  )
+}
+
+function InstallRow() {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={openInstallSheet}
+        className="flex min-h-[44px] w-full items-center gap-3 py-2.5 pl-3 pr-2 text-left text-[17px] transition-colors active:bg-paper-sunk"
+      >
+        <RowIcon>
+          <SquarePlus className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
+        </RowIcon>
+        <span className="flex-1">Add to Home Screen</span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
+      </button>
+    </li>
   )
 }
 
@@ -202,43 +182,5 @@ function Stat({ label, value }: { label: string; value: number }) {
       <dd className="text-[20px] font-semibold">{value}</dd>
       <dt className="text-[12px] text-ink-soft">{label}</dt>
     </div>
-  )
-}
-
-function ClaimRow({ claim }: { claim: MyClaim }) {
-  const quest = claim.quest
-  const left = remaining(claim.proofDeadline)
-  const status = {
-    active: left ? `Proof due in ${left}` : 'Proof is overdue',
-    submitted: 'Video sent, waiting on the result',
-    approved: 'Approved and paid',
-    rejected: 'Not approved',
-    abandoned: 'You gave up',
-    expired: 'Ran out of time',
-  }[claim.status]
-
-  return (
-    <li>
-      <Link
-        href={`/q/${claim.questId}`}
-        className="flex items-center gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-paper-sunk"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[17px] leading-snug">{quest?.description ?? 'Quest'}</p>
-          <p className={`mt-1 truncate text-[13px] ${claim.status === 'active' ? 'font-semibold text-moss' : 'text-ink-soft'}`}>
-            {status}
-            {quest && ` · ${formatAmount(quest.rewardAmount, quest.rewardMint)}`}
-          </p>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
-      </Link>
-      {claim.status === 'active' && left && (
-        <div className="px-4 pb-3.5">
-          <Link href={`/q/${claim.questId}/record`} className={`${button()} w-full`}>
-            Record your proof
-          </Link>
-        </div>
-      )}
-    </li>
   )
 }

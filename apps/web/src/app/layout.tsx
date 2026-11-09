@@ -7,6 +7,7 @@ import { DesktopGate } from '@/components/desktop-gate'
 import { InstallSheet } from '@/components/install-sheet'
 import { Toaster } from '@/components/toast'
 import { PullToRefresh } from '@/components/pull-to-refresh'
+import { OfflineBanner } from '@/components/offline-banner'
 
 const display = Caprasimo({
   subsets: ['latin'],
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <InstallSheet />
             <Toaster />
             <PullToRefresh />
+            <OfflineBanner />
           </Providers>
         </div>
       </body>

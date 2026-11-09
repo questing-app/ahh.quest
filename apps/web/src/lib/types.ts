@@ -58,6 +58,8 @@ export interface Proof {
   aiReasoning: string | null
   finalDecision: 'approved' | 'rejected' | null
   decidedBy: 'ai' | 'creator' | 'timeout' | null
+  /** What the poster wrote when they rejected it. */
+  rejectReason: string | null
   createdAt: number
 }
 
@@ -70,9 +72,16 @@ export interface MyClaim extends Claim {
   quest: Quest | null
 }
 
+/** A live attempt on one of my quests. `checked` is true once the video check has run. */
+export interface IncomingClaim extends Claim {
+  claimer: Person | null
+  checked: boolean
+}
+
 export interface MyFeed {
   quests: Quest[]
   claims: MyClaim[]
+  incoming: IncomingClaim[]
 }
 
 /** New accounts get "<first 8 of pubkey>..." until they pick a name. */

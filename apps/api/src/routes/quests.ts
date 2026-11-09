@@ -116,6 +116,7 @@ questRoutes.get('/:questId/claims', optionalAuthMiddleware, async (c) => {
         aiReasoning: proof.aiReasoning,
         finalDecision: proof.finalDecision,
         decidedBy: proof.decidedBy,
+        rejectReason: proof.rejectReason,
         createdAt: proof.createdAt,
       } : null,
     }

@@ -1,17 +1,12 @@
-'use client'
-
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import type { QuestClaim } from '@/lib/types'
 import { displayName } from '@/lib/types'
 import { claimStatusLine } from '@/lib/claim-status'
-import { useApi } from '@/lib/session'
-import { errorMessage } from '@/lib/api'
 import { Avatar } from './avatar'
 import { button } from './button'
-import { ConfirmButton } from './confirm-button'
 import { SectionHeader, groupedList } from './notice'
-import { toast } from './toast'
 
+/** Everyone who has taken this quest. Deciding happens on the review screen. */
 export function Attempts({
   questId,
   claims,
@@ -28,27 +23,21 @@ export function Attempts({
       <SectionHeader id="attempts-heading">Attempts</SectionHeader>
       <ul className={groupedList}>
         {claims.map((claim) => (
-          <Attempt key={claim.id} questId={questId} claim={claim} canDecide={viewerIsCreator && claim.status === 'submitted'} />
+          <Attempt
+            key={claim.id}
+            questId={questId}
+            claim={claim}
+            canReview={viewerIsCreator && claim.status === 'submitted' && claim.proof?.aiDecision != null}
+          />
         ))}
       </ul>
     </section>
   )
 }
 
-function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestClaim; canDecide: boolean }) {
-  const api = useApi()
-  const queryClient = useQueryClient()
-  const decide = useMutation({
-    mutationFn: (verdict: 'approve' | 'reject') =>
-      api(`/api/claims/${claim.id}/${verdict}`, { method: 'POST' }),
-    onSuccess: (_, verdict) => {
-      queryClient.invalidateQueries({ queryKey: ['quest', questId] })
-      queryClient.invalidateQueries({ queryKey: ['mine'] })
-      toast(verdict === 'approve' ? 'Approved. They’ve been paid.' : 'Rejected. The reward is back with you.')
-    },
-  })
-
+function Attempt({ questId, claim, canReview }: { questId: string; claim: QuestClaim; canReview: boolean }) {
   const proof = claim.proof
+  const reason = proof?.rejectReason ?? (proof?.decidedBy === 'ai' && claim.status === 'rejected' ? proof.aiReasoning : null)
 
   return (
     <li className="p-4">
@@ -60,58 +49,30 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
         </p>
       </div>
 
-      {proof && (
-        <div className="mt-4 space-y-4">
-          <video
-            src={proof.videoUrl}
-            poster={proof.thumbnailUrl ?? undefined}
-            controls
-            playsInline
-            preload="metadata"
-            className="aspect-[9/16] w-full rounded-[12px] bg-night object-cover"
-          />
-          <div className="text-[15px] leading-relaxed">
-            {proof.aiConfidence !== null ? (
-              <>
-                <p className="font-semibold">Video check: {proof.aiConfidence}% sure it’s done</p>
-                {proof.aiReasoning && <p className="mt-1 text-ink-soft">{proof.aiReasoning}</p>}
-              </>
-            ) : (
-              <p className="text-ink-soft">Checking the video. This usually takes a minute or two.</p>
-            )}
-
-            {canDecide && (
-              <div className="mt-5 space-y-3">
-                <p className="text-[15px] text-ink-soft">
-                  Your call. If you don’t decide in time, it’s approved automatically.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => decide.mutate('approve')}
-                    disabled={decide.isPending}
-                    className={button()}
-                  >
-                    {decide.isPending && decide.variables === 'approve' ? 'Approving…' : 'Approve and pay'}
-                  </button>
-                  <ConfirmButton
-                    label="Reject"
-                    question="Reject this video? The reward and their deposit come back to you."
-                    confirmLabel="Reject video"
-                    className={button('danger')}
-                    pending={decide.isPending}
-                    onConfirm={() => decide.mutate('reject')}
-                  />
-                </div>
-                {decide.error && (
-                  <p role="alert" className="text-[15px] text-wax">
-                    {errorMessage(decide.error)}
-                  </p>
-                )}
-              </div>
+      {canReview ? (
+        <Link href={`/q/${questId}/review`} className={`${button()} mt-4 w-full`}>
+          Review the video
+        </Link>
+      ) : (
+        proof &&
+        claim.status !== 'submitted' && (
+          <div className="mt-4 space-y-3">
+            <video
+              src={proof.videoUrl}
+              poster={proof.thumbnailUrl ?? undefined}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-[9/16] w-full rounded-[12px] bg-night object-cover"
+            />
+            {reason && (
+              <p className="text-[15px] leading-relaxed text-ink-soft">
+                <span className="font-semibold text-ink">Why it wasn’t approved: </span>
+                {reason}
+              </p>
             )}
           </div>
-        </div>
+        )
       )}
     </li>
   )

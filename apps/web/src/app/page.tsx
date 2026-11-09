@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
@@ -9,13 +9,34 @@ import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { QuestRow } from '@/components/quest-row'
 import { Notice, SectionHeader, groupedList } from '@/components/notice'
 import { SkeletonRows } from '@/components/skeleton'
+import { EmptyState } from '@/components/empty-state'
 import { button } from '@/components/button'
-import { useFeed } from '@/lib/queries'
+import { useFeed, type FeedFilter } from '@/lib/queries'
 import { useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 
+const INTRO_KEY = 'quest:intro-dismissed'
+
 export default function HomePage() {
   const { ready, authenticated, login } = useSession()
+  const [introHidden, setIntroHidden] = useState(true)
+
+  useEffect(() => {
+    try {
+      setIntroHidden(localStorage.getItem(INTRO_KEY) === '1')
+    } catch {
+      setIntroHidden(false)
+    }
+  }, [])
+
+  function lookAround() {
+    setIntroHidden(true)
+    try {
+      localStorage.setItem(INTRO_KEY, '1')
+    } catch {
+      // Private mode: the intro comes back next visit.
+    }
+  }
 
   return (
     <div className={TAB_BAR_SPACE}>
@@ -31,18 +52,16 @@ export default function HomePage() {
         }
       />
       <main>
-        {ready && !authenticated && <Intro />}
+        {ready && !authenticated && !introHidden && <Intro onLookAround={lookAround} />}
         <Feed />
       </main>
     </div>
   )
 }
 
-function Intro() {
-  const { login } = useSession()
-
+function Intro({ onLookAround }: { onLookAround: () => void }) {
   return (
-    <section aria-labelledby="intro-heading">
+    <section aria-labelledby="intro-heading" className="pb-2">
       <div className="relative">
         <Image
           src="/art/complete.png"
@@ -65,55 +84,101 @@ function Intro() {
           Post a challenge and lock up a reward. Whoever films it and gets approved is paid. If nobody does, you
           get it back.
         </p>
-        <button type="button" onClick={login} className={`${button()} mt-5 w-full`}>
+        <Link href="/welcome" className={`${button()} mt-5 w-full`}>
           Get started
+        </Link>
+        <button type="button" onClick={onLookAround} className="press mt-1 h-11 w-full text-[17px] text-moss">
+          Look around first
         </button>
       </div>
     </section>
   )
 }
 
+const FILTERS: { id: FeedFilter; label: string; signedIn?: boolean }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'mine', label: 'For you', signedIn: true },
+  { id: 'ending', label: 'Ending soon' },
+  { id: 'biggest', label: 'Biggest' },
+]
+
+const HEADINGS: Record<FeedFilter, string> = {
+  all: 'Open now',
+  mine: 'Posted for you',
+  ending: 'Ending soonest',
+  biggest: 'Biggest rewards',
+}
+
+function useDebounced(value: string, ms: number) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), ms)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return debounced
+}
+
 function Feed() {
-  const { data, error, isPending, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching } = useFeed()
+  const { authenticated } = useSession()
   const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<FeedFilter>('all')
+  const needle = useDebounced(query.trim(), 300)
+  const { data, error, isPending, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching } = useFeed({
+    q: needle,
+    filter,
+  })
   const quests = data?.pages.flat() ?? []
-  const needle = query.trim().toLowerCase()
-  const shown = needle ? quests.filter((q) => q.description.toLowerCase().includes(needle)) : quests
+  const searching = needle.length > 0
 
   return (
     <section aria-labelledby="feed-heading">
-      {quests.length > 0 && (
-        <div className="px-4 pt-4">
-          <label htmlFor="feed-search" className="sr-only">
-            Search quests
-          </label>
-          <div className="flex h-9 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] pl-2 pr-1">
-            <Search className="h-[17px] w-[17px] shrink-0 text-ink-soft" strokeWidth={2.25} aria-hidden />
-            <input
-              id="feed-search"
-              type="search"
-              enterKeyHint="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              autoComplete="off"
-              className="h-full min-w-0 flex-1 bg-transparent text-[17px] placeholder:text-ink-soft/80 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                aria-label="Clear search"
-                className="press flex h-9 w-9 items-center justify-center"
-              >
-                <X className="h-4 w-4 rounded-full bg-ink-soft/60 p-0.5 text-paper-raised" strokeWidth={3} aria-hidden />
-              </button>
-            )}
-          </div>
+      <div className="px-4 pt-3">
+        <label htmlFor="feed-search" className="sr-only">
+          Search quests
+        </label>
+        <div className="flex h-9 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] pl-2 pr-1">
+          <Search className="h-[17px] w-[17px] shrink-0 text-ink-soft" strokeWidth={2.25} aria-hidden />
+          <input
+            id="feed-search"
+            type="search"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search quests"
+            autoComplete="off"
+            className="h-full min-w-0 flex-1 bg-transparent text-[17px] placeholder:text-ink-soft/80 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="press flex h-9 w-9 items-center justify-center"
+            >
+              <X className="h-4 w-4 rounded-full bg-ink-soft/60 p-0.5 text-paper-raised" strokeWidth={3} aria-hidden />
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
-      <SectionHeader id="feed-heading">{needle ? 'Results' : 'Open now'}</SectionHeader>
+      <div role="radiogroup" aria-label="Show" className="chrome flex gap-2 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
+        {FILTERS.filter((f) => !f.signedIn || authenticated).map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="radio"
+            aria-checked={filter === f.id}
+            onClick={() => setFilter(f.id)}
+            className={`press h-8 shrink-0 rounded-full px-3.5 text-[15px] font-medium ${
+              filter === f.id ? 'bg-moss text-paper-raised' : 'bg-ink/[0.06] text-ink'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <SectionHeader id="feed-heading">{searching ? `Results for “${needle}”` : HEADINGS[filter]}</SectionHeader>
 
       {isPending && <SkeletonRows label="Loading quests" />}
       {error && (
@@ -129,26 +194,33 @@ function Feed() {
           </button>
         </div>
       )}
+
       {!isPending && !error && quests.length === 0 && (
-        <Notice>
-          Nothing open right now.{' '}
-          <Link href="/post" className="font-semibold text-moss">
-            Post the first one
-          </Link>
-        </Notice>
-      )}
-      {needle && shown.length === 0 && quests.length > 0 && (
-        <Notice>
-          No quests match “{query.trim()}”.{' '}
-          <button type="button" onClick={() => setQuery('')} className="font-semibold text-moss">
-            Clear search
-          </button>
-        </Notice>
+        searching ? (
+          <Notice>
+            No open quests match “{needle}”.{' '}
+            <button type="button" onClick={() => setQuery('')} className="font-semibold text-moss">
+              Clear search
+            </button>
+          </Notice>
+        ) : filter === 'mine' ? (
+          <Notice>Nobody has posted a quest just for you yet. When they do, it shows up here.</Notice>
+        ) : (
+          <EmptyState
+            art="/art/empty.jpg"
+            title="The board is empty"
+            body="Nothing is open right now. Post a challenge and yours will be the first one people see."
+          >
+            <Link href="/post" className={`${button()} w-full`}>
+              Post a quest
+            </Link>
+          </EmptyState>
+        )
       )}
 
-      {shown.length > 0 && (
+      {quests.length > 0 && (
         <ul className={groupedList}>
-          {shown.map((quest) => (
+          {quests.map((quest) => (
             <QuestRow key={quest.id} quest={quest} />
           ))}
         </ul>
@@ -162,7 +234,7 @@ function Feed() {
             disabled={isFetchingNextPage}
             className={`${button('outline')} mt-4 w-full`}
           >
-            {isFetchingNextPage ? 'Loading…' : needle ? 'Search more quests' : 'Show more'}
+            {isFetchingNextPage ? 'Loading…' : 'Show more'}
           </button>
         </div>
       )}

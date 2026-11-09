@@ -27,9 +27,10 @@ export async function recordApproved(
 
 export async function recordRejected(
   db: Database, quest: Quest, claim: Claim, decidedBy: DecidedBy, txSig: string, safetyFlagged: boolean,
+  reason: string | null = null,
 ) {
   await db.update(proofs)
-    .set({ finalDecision: 'rejected', decidedBy, oracleTxSig: txSig })
+    .set({ finalDecision: 'rejected', decidedBy, oracleTxSig: txSig, rejectReason: reason })
     .where(eq(proofs.claimId, claim.id))
   await db.update(claims).set({ status: 'rejected' }).where(eq(claims.id, claim.id))
   await db.update(quests).set({ status: 'failed' }).where(eq(quests.id, quest.id))

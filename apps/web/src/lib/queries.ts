@@ -8,11 +8,22 @@ import type { MyFeed, Quest, QuestClaim, User } from './types'
 
 const PAGE_SIZE = 20
 
-export function useFeed() {
+export type FeedFilter = 'all' | 'mine' | 'ending' | 'biggest'
+
+export function useFeed({ q = '', filter = 'all' }: { q?: string; filter?: FeedFilter } = {}) {
+  const { token, ready } = useSession()
   return useInfiniteQuery({
-    queryKey: ['feed'],
+    queryKey: ['feed', q, filter, filter === 'mine' && Boolean(token)],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => apiFetch<Quest[]>(`/api/feed?limit=${PAGE_SIZE}&offset=${pageParam}`),
+    enabled: filter !== 'mine' || ready,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(pageParam) })
+      if (q) params.set('q', q)
+      if (filter === 'ending') params.set('sort', 'ending')
+      if (filter === 'biggest') params.set('sort', 'biggest')
+      if (filter === 'mine') params.set('for', 'me')
+      return apiFetch<Quest[]>(`/api/feed?${params}`, { token })
+    },
     getNextPageParam: (last, pages) => (last.length === PAGE_SIZE ? pages.length * PAGE_SIZE : undefined),
   })
 }

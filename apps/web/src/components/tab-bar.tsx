@@ -2,10 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Compass, Plus, UserRound } from 'lucide-react'
+import { Compass, Inbox, Plus, UserRound } from 'lucide-react'
+import { useMemo } from 'react'
+import { useMyFeed } from '@/lib/queries'
+import { buildActivity } from '@/lib/activity'
 
 const TABS = [
   { href: '/', label: 'Quests', icon: Compass, match: (p: string) => p === '/' || p.startsWith('/q/') },
+  { href: '/activity', label: 'Activity', icon: Inbox, match: (p: string) => p.startsWith('/activity') },
   { href: '/post', label: 'Post', icon: Plus, match: (p: string) => p.startsWith('/post') },
   { href: '/me', label: 'You', icon: UserRound, match: (p: string) => p.startsWith('/me') || p.startsWith('/u/') },
 ]
@@ -15,6 +19,8 @@ const HIDDEN = [/^\/welcome/, /^\/q\/[^/]+\/record/]
 
 export function TabBar() {
   const pathname = usePathname() ?? '/'
+  const mine = useMyFeed()
+  const needsYou = useMemo(() => (mine.data ? buildActivity(mine.data).needsYou.length : 0), [mine.data])
   if (HIDDEN.some((re) => re.test(pathname))) return null
 
   return (
@@ -43,9 +49,17 @@ export function TabBar() {
                     <Icon className="h-[18px] w-[18px]" strokeWidth={2.75} aria-hidden />
                   </span>
                 ) : (
-                  <Icon className="h-[26px] w-[26px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                  <span className="relative">
+                    <Icon className="h-[26px] w-[26px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                    {href === '/activity' && needsYou > 0 && (
+                      <span className="tabular absolute -right-2 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-wax px-1 text-[11px] font-semibold leading-none text-paper-raised">
+                        {needsYou}
+                      </span>
+                    )}
+                  </span>
                 )}
                 {label}
+                {href === '/activity' && needsYou > 0 && <span className="sr-only">, {needsYou} need you</span>}
               </Link>
             </li>
           )
