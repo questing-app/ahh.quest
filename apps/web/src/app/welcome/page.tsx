@@ -91,7 +91,7 @@ function Welcome() {
   )
 }
 
-function Art({ src, alt }: { src: string; alt: string }) {
+function Art({ src, alt, short }: { src: string; alt: string; short?: boolean }) {
   return (
     <Image
       src={src}
@@ -99,7 +99,7 @@ function Art({ src, alt }: { src: string; alt: string }) {
       width={390}
       height={360}
       priority
-      className="art-fade -mx-6 max-h-[32dvh] w-[calc(100%+3rem)] max-w-none object-cover"
+      className={`art-fade -mx-6 w-[calc(100%+3rem)] max-w-none object-cover ${short ? 'max-h-[22dvh]' : 'max-h-[32dvh]'}`}
     />
   )
 }
@@ -165,9 +165,9 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
 
   return (
     <>
-      <Art src="/art/wallet.png" alt="A wizard points a knight on horseback toward a small chest on a mountain path" />
+      <Art short src="/art/wallet.png" alt="A wizard points a knight on horseback toward a small chest on a mountain path" />
       <Heading eyebrow="Your money is safe" title="Rewards are locked up" />
-      <ul className="mx-auto mt-5 w-full max-w-[22rem] space-y-4">
+      <ul className="mx-auto mt-4 w-full max-w-[22rem] space-y-3">
         {points.map(({ icon: Icon, title, body }) => (
           <li key={title} className="flex gap-3.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-pale text-moss-deep">
@@ -203,12 +203,13 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
         <div className="mt-3 space-y-3 text-[15px] leading-relaxed text-ink-soft">
           <p>
             When a quest is posted, the reward moves out of the poster’s wallet into an account owned by the Quest
-            program on Solana. Nobody holds a key to it, Quest included.
+            program on Solana. No person holds a key to it, Quest included.
           </p>
           <p>
             The program only releases it four ways: to the person whose video is approved, back to the poster if they
             cancel before anyone takes it, back to the poster if the video is rejected, or back to the poster if
-            nobody finishes in time.
+            nobody finishes in time. Quest’s video checker picks between those outcomes; it can’t send the money
+            anywhere else.
           </p>
           <p>Every quest page links to its vault so you can check the balance yourself.</p>
         </div>
@@ -218,7 +219,7 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
           rel="noreferrer"
           className={`${button('outline')} mt-5 w-full`}
         >
-          See the program on Solana Explorer
+          View on Solana Explorer
         </a>
         <button type="button" onClick={() => setVaultOpen(false)} className="press mt-1 h-11 w-full text-[17px] text-moss">
           Close
