@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { SwitchCamera } from 'lucide-react'
+import { Check, Loader2, SwitchCamera } from 'lucide-react'
+import { ConfirmButton } from '@/components/confirm-button'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMe, useQuest, useQuestClaims } from '@/lib/queries'
 import { useSession } from '@/lib/session'
@@ -22,14 +23,14 @@ import { button } from '@/components/button'
 import { bytesToHex, fetchClaim, hexToBytes, submitProofIx, variant } from '@quest/sdk'
 import { program, useSendTransaction, useWallet } from '@/lib/chain'
 
-type Take = { blob: Blob; url: string; duration: number; frames: Blob[] }
+type Take = { blob: Blob; url: string; duration: number; frames: Blob[]; picked?: boolean }
 type Stage = 'setup' | 'live' | 'recording' | 'review' | 'sending' | 'sent'
 
 const STEP_LABELS: Record<SendStep, string> = {
   video: 'Uploading your video',
-  frames: 'Sending stills for the check',
-  sign: 'Recording the video’s fingerprint on-chain',
-  submit: 'Submitting your proof',
+  frames: 'Preparing it for the check',
+  sign: 'Confirm in your wallet',
+  submit: 'Sending your proof',
 }
 
 export default function RecordPage() {
@@ -39,6 +40,7 @@ export default function RecordPage() {
   const { data: me } = useMe()
   const { token } = useSession()
   const queryClient = useQueryClient()
+  const router = useRouter()
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
 
@@ -143,7 +145,7 @@ export default function RecordPage() {
     try {
       const { duration, frames } = await inspectVideoFile(file)
       stopStream()
-      setTake({ blob: file, url: URL.createObjectURL(file), duration, frames })
+      setTake({ blob: file, url: URL.createObjectURL(file), duration, frames, picked: true })
       setStage('review')
     } catch (err) {
       setError(errorMessage(err))
@@ -193,12 +195,28 @@ export default function RecordPage() {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-night pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-paper-raised">
       <div className="chrome flex h-11 items-center justify-between px-4">
-        <Link href={`/q/${id}`} className="press text-[17px] text-paper-raised">
-          Close
-        </Link>
+        {stage === 'recording' || stage === 'review' ? (
+          <div className="-ml-2">
+            <ConfirmButton
+              label="Close"
+              question={stage === 'recording' ? 'Stop and throw away this recording?' : 'Throw away this video?'}
+              confirmLabel="Discard video"
+              className="press h-11 px-2 text-[17px] text-paper-raised"
+              onConfirm={() => {
+                stopRecording()
+                stopStream()
+                router.push(`/q/${id}`)
+              }}
+            />
+          </div>
+        ) : (
+          <Link href={`/q/${id}`} className="press -ml-2 flex h-11 items-center px-2 text-[17px] text-paper-raised">
+            Close
+          </Link>
+        )}
         {claim && stage !== 'sent' && (
           <p className="text-sm text-paper-raised/70">
-            {remaining(claim.proofDeadline) ? `${remaining(claim.proofDeadline)} left to send` : 'Proof window closed'}
+            {remaining(claim.proofDeadline) ? `${remaining(claim.proofDeadline)} left to send` : 'Time to send has run out'}
           </p>
         )}
       </div>
@@ -251,14 +269,14 @@ export default function RecordPage() {
               {stage === 'setup' && (
                 <div className="py-8">
                   <p className="text-[17px] leading-relaxed text-paper-raised/85">
-                    Film it here so it goes straight in. Your camera and microphone switch on when you tap below.
+                    Film it here and it goes straight in. Your camera and microphone turn on when you tap below.
                   </p>
                   <div className="mt-6 flex flex-col gap-3">
                     <button type="button" onClick={() => startCamera()} className={`${button()} w-full`}>
                       Turn on camera
                     </button>
-                    <label className="cursor-pointer text-center text-[15px] text-paper-raised/75 underline underline-offset-4 hover:text-paper-raised">
-                      Or pick a video you already filmed
+                    <label className="press flex h-11 cursor-pointer items-center justify-center text-[15px] text-paper-raised/80 underline underline-offset-4">
+                      Or choose a video you already filmed
                       <input
                         type="file"
                         accept="video/*"
@@ -274,8 +292,8 @@ export default function RecordPage() {
                 <div className="py-10">
                   <h1 className="font-display text-[34px] leading-tight text-paper-raised">Proof sent.</h1>
                   <p className="mt-3 text-[17px] leading-relaxed text-paper-raised/80">
-                    The check usually takes a minute or two. If it passes, the reward and your deposit land
-                    in your wallet. If it’s a close call, the poster gets 24 hours to decide.
+                    The check takes a minute or two. If it passes, the reward and your deposit go to your
+                    wallet. Close calls go to the poster, who has 24 hours to decide.
                   </p>
                   <Link href={`/q/${id}`} className={`${button()} mt-7`}>
                     Back to the quest
@@ -335,24 +353,34 @@ export default function RecordPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={retake}
+                    onClick={take.picked ? () => { setTake(null); setStage('setup') } : retake}
                     className="press-scale h-[50px] rounded-[14px] bg-paper-raised/15 px-5 text-[17px] font-semibold"
                   >
-                    Record again
+                    {take.picked ? 'Choose another' : 'Record again'}
                   </button>
                 </div>
               </div>
             )}
 
             {stage === 'sending' && (
-              <ol className="mt-6 space-y-2 text-[15px]">
+              <ol className="mt-6 space-y-3 text-[15px]" aria-live="polite">
                 {(Object.keys(STEP_LABELS) as SendStep[]).map((s) => {
                   const order: SendStep[] = ['video', 'frames', 'sign', 'submit']
                   const state = order.indexOf(s) < order.indexOf(step) ? 'done' : s === step ? 'now' : 'later'
                   return (
-                    <li key={s} className={state === 'later' ? 'text-paper-raised/45' : ''}>
-                      {state === 'done' ? '✓ ' : state === 'now' ? '… ' : ''}
+                    <li
+                      key={s}
+                      className={`flex items-center gap-3 ${state === 'later' ? 'text-paper-raised/45' : ''} ${
+                        state === 'now' ? 'font-semibold' : ''
+                      }`}
+                    >
+                      <span className="flex h-5 w-5 items-center justify-center" aria-hidden>
+                        {state === 'done' && <Check className="h-5 w-5 text-moss-pale" strokeWidth={3} />}
+                        {state === 'now' && <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} />}
+                        {state === 'later' && <span className="h-1.5 w-1.5 rounded-full bg-paper-raised/45" />}
+                      </span>
                       {STEP_LABELS[s]}
+                      {state === 'done' && <span className="sr-only"> (done)</span>}
                     </li>
                   )
                 })}

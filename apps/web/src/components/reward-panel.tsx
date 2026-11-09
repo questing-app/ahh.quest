@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Quest, QuestClaim, User } from '@/lib/types'
 import { feeFor, formatUnits, stakeFor, tokenForMint } from '@/lib/tokens'
@@ -12,6 +13,7 @@ import { program, useSendTransaction, useWallet } from '@/lib/chain'
 import { TokenBalance, useTokenBalance } from './token-balance'
 import { button } from './button'
 import { ConfirmButton } from './confirm-button'
+import { toast } from './toast'
 
 export function RewardPanel({
   quest,
@@ -47,7 +49,7 @@ export function RewardPanel({
           <dd>{amount(quest.rewardAmount - fee)}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-ink-soft">Deposit to claim</dt>
+          <dt className="text-ink-soft">Deposit to take it</dt>
           <dd>{amount(stake)}</dd>
         </div>
       </dl>
@@ -89,21 +91,30 @@ function PanelAction({
   const onChain = { questId: quest.onchainId, mint: quest.rewardMint }
 
   // Each action is signed on-chain first; the API then mirrors what landed.
+  const [claimStep, setClaimStep] = useState<'checking' | 'signing'>('checking')
   const claim = useMutation({
     mutationFn: async () => {
+      setClaimStep('checking')
       await api(`/api/quests/${quest.id}/claim/check`, { method: 'POST' })
+      setClaimStep('signing')
       const ix = await claimQuestIx(program, { ...onChain, claimer: address!, stakeAmount: stake })
       const txSignature = await sendTransaction([ix])
       return api(`/api/quests/${quest.id}/claim`, { json: { txSignature } })
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      refresh()
+      toast('Quest taken. The clock is running.')
+    },
   })
   const cancel = useMutation({
     mutationFn: async () => {
       await sendTransaction([await cancelQuestIx(program, { ...onChain, creator: address! })])
       return api(`/api/quests/${quest.id}`, { method: 'DELETE' })
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      refresh()
+      toast('Quest cancelled. The reward is back in your wallet.')
+    },
   })
   const abandon = useMutation({
     mutationFn: async (claimId: string) => {
@@ -112,11 +123,18 @@ function PanelAction({
       await sendTransaction([await abandonClaimIx(program, { ...onChain, claimer: address!, creator })])
       return api(`/api/claims/${claimId}`, { method: 'DELETE' })
     },
-    onSuccess: refresh,
+    onSuccess: () => {
+      refresh()
+      toast('You gave up this quest.')
+    },
   })
 
   const error = claim.error ?? cancel.error ?? abandon.error
-  const errorLine = error ? <p className="mt-3 text-sm text-wax">{errorMessage(error)}</p> : null
+  const errorLine = error ? (
+    <p role="alert" className="mt-3 text-[15px] text-wax">
+      {errorMessage(error)}
+    </p>
+  ) : null
 
   if (!ready) return null
 
@@ -128,17 +146,17 @@ function PanelAction({
     ) : null
   }
 
-  if (!me || !address) return <p className="text-sm text-ink-soft">Loading your account…</p>
+  if (!me || !address) return <p className="text-[15px] text-ink-soft">Loading your account…</p>
 
   // The poster
   if (quest.creatorId === me.id) {
     if (quest.status === 'active' && quest.currentClaimers === 0) {
       return (
         <>
-          <p className="mb-4 text-sm text-ink-soft">Nobody has claimed this yet. You can still take it down.</p>
+          <p className="mb-4 text-[15px] text-ink-soft">Nobody has taken this yet, so you can still cancel it.</p>
           <ConfirmButton
             label="Cancel quest"
-            question="Take this quest down and get the reward back?"
+            question="Cancel this quest? The reward goes back to your wallet."
             confirmLabel="Cancel quest"
             pending={cancel.isPending}
             onConfirm={() => cancel.mutate()}
@@ -152,7 +170,7 @@ function PanelAction({
       <p className="text-[15px] text-ink-soft">
         {waiting > 0
           ? `${waiting === 1 ? 'A video is' : `${waiting} videos are`} waiting below.`
-          : 'This is your quest. Attempts show up below as they come in.'}
+          : 'Nobody is on it right now. Attempts show up below.'}
       </p>
     )
   }
@@ -166,14 +184,14 @@ function PanelAction({
         <Link href={`/q/${quest.id}/record`} className={`${button()} w-full`}>
           Record your proof
         </Link>
-        <p className="mt-3 text-sm text-ink-soft">
-          {left ? `You have ${left} to send your video.` : 'Your proof window has closed.'}
+        <p className="mt-3 text-[15px] text-ink-soft">
+          {left ? `${left} left to send your video.` : 'Your time to send a video has run out.'}
         </p>
         <div className="mt-4">
           <ConfirmButton
             variant="link"
             label="Give up this quest"
-            question={`Give up? Your ${stakeLabel} deposit goes to the poster.`}
+            question={`Give up this quest? You lose your ${stakeLabel} deposit to the poster.`}
             confirmLabel="Give up"
             pending={abandon.isPending}
             onConfirm={() => abandon.mutate(mine.id)}
@@ -184,7 +202,7 @@ function PanelAction({
     )
   }
   if (mine?.status === 'submitted') {
-    return <p className="text-[15px]">Your video is in. You’ll see the result here.</p>
+    return <p className="text-[15px]">Your video is in. The result shows up here, usually within a few minutes.</p>
   }
 
   // Everyone else
@@ -205,16 +223,15 @@ function PanelAction({
         disabled={claim.isPending || !canAfford}
         className={`${button()} w-full`}
       >
-        {claim.isPending ? 'Confirm in your wallet…' : 'Take this quest'}
+        {claim.isPending ? (claimStep === 'checking' ? 'Checking…' : 'Confirm in your wallet…') : 'Take this quest'}
       </button>
       {!canAfford && (
         <div className="mt-3">
           <TokenBalance />
         </div>
       )}
-      <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-        You put down {stakeLabel}, which you get back with the reward. You then have 24 hours to send
-        your video.
+      <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+        You put down {stakeLabel} and get it back with the reward. Then you have 24 hours to send your video.
       </p>
       {errorLine}
     </>

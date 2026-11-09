@@ -35,7 +35,15 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
 
   const data = await res.json().catch(() => null)
   if (!res.ok) {
-    throw new ApiError(res.status, data?.error ?? `Request failed with ${res.status}`)
+    const fallback =
+      res.status === 401
+        ? 'Your session ran out. Sign in again.'
+        : res.status === 404
+          ? 'We couldn’t find that. It may have been removed.'
+          : res.status >= 500
+            ? 'Quest had a problem on its end. Try again in a moment.'
+            : 'That didn’t work. Try again.'
+    throw new ApiError(res.status, data?.error ?? fallback)
   }
   return data as T
 }
@@ -43,5 +51,5 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
 export function errorMessage(err: unknown): string {
   if (err instanceof TypeError) return 'Couldn’t reach Quest. Check your connection and try again.'
   if (err instanceof ApiError || err instanceof Error) return err.message
-  return 'Something went wrong'
+  return 'Something went wrong. Try again.'
 }

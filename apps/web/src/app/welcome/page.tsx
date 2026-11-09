@@ -17,26 +17,26 @@ const PANELS = [
   {
     art: '/art/wallet.png',
     alt: 'A wizard points a knight on horseback toward a small chest on a mountain path',
-    title: 'Create Wallet',
-    body: 'Rewards are held in a wallet until a quest is done, then paid straight into the winner’s. Sign in and we’ll set one up for you.',
+    title: 'Your wallet',
+    body: 'Rewards are locked until a quest is done, then paid straight to the winner’s wallet. Sign in and we’ll set one up.',
   },
   {
     art: '/art/profile.png',
     alt: 'A wizard writes on a profile scroll pinned to an easel while a knight looks on',
-    title: 'Set Up Profile',
-    body: 'Pick the name people see on the quests you post and the ones you complete.',
+    title: 'Your name',
+    body: 'This is what people see on quests you post and complete.',
   },
   {
     art: '/art/walkthrough.png',
     alt: 'A wizard explains a map of arrows between a castle, a sword and a chest',
-    title: 'Walkthrough',
-    body: 'Post a dare and put up a reward, or claim one someone else posted. Film it in one take. The video is checked, and if it passes the reward is paid out.',
+    title: 'How it works',
+    body: 'Post a challenge with a reward, or take one someone else posted. Film it in one take. If the video passes, the reward is paid.',
   },
   {
     art: '/art/complete.png',
     alt: 'A knight hands a glowing coin to a wizard beside an open chest of gold',
-    title: 'Complete Quest',
-    body: 'You have 24 hours after claiming to send your proof. Once it’s approved, the reward and your deposit land in your wallet.',
+    title: 'Get paid',
+    body: 'You have 24 hours after taking a quest to send your video. Once it’s approved, the reward and your deposit are yours.',
   },
 ]
 
@@ -47,8 +47,19 @@ export default function WelcomePage() {
 
   return (
     <main className="chrome mx-auto flex min-h-[100dvh] max-w-[520px] flex-col overflow-x-hidden px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-[env(safe-area-inset-top)]">
-      <header className="flex h-11 items-center justify-between">
-        <div className="flex gap-1.5" aria-label={`Step ${index + 1} of ${PANELS.length}`}>
+      <header className="grid h-11 grid-cols-[1fr_auto_1fr] items-center">
+        <div>
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={() => setIndex(index - 1)}
+              className="press -ml-2 flex h-11 items-center px-2 text-[17px] text-moss"
+            >
+              Back
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5" aria-hidden>
           {PANELS.map((p, i) => (
             <span
               key={p.title}
@@ -56,11 +67,13 @@ export default function WelcomePage() {
             />
           ))}
         </div>
-        {!last && (
-          <Link href="/" className="press text-[17px] text-moss">
-            Skip
-          </Link>
-        )}
+        <div className="flex justify-end">
+          {!last && (
+            <Link href="/" className="press -mr-2 flex h-11 items-center px-2 text-[17px] text-moss">
+              Skip
+            </Link>
+          )}
+        </div>
       </header>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -74,7 +87,9 @@ export default function WelcomePage() {
         >
           <Image src={panel.art} alt={panel.alt} width={390} height={360} priority className="art-fade -mx-6 w-[calc(100%+3rem)] max-w-none" />
           <div className="mt-1 text-center">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-moss/80">Onboarding quest</p>
+            <p className="tabular text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+              Step {index + 1} of {PANELS.length}
+            </p>
             <h1 className="mt-2 font-display text-[34px] leading-none text-moss">{panel.title}</h1>
             <p className="mx-auto mt-3 max-w-[22rem] text-[17px] leading-relaxed text-ink-soft">{panel.body}</p>
           </div>

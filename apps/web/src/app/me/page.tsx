@@ -3,7 +3,12 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import Image from 'next/image'
-import { ChevronRight, SquarePlus } from 'lucide-react'
+import { ChevronRight, Copy, SquarePlus } from 'lucide-react'
+import { SkeletonRows } from '@/components/skeleton'
+import { toast } from '@/components/toast'
+import { TokenBalance, useTokenBalance } from '@/components/token-balance'
+import { TOKENS } from '@/lib/tokens'
+import { CLUSTER } from '@/lib/chain'
 import { openInstallSheet, useStandalone } from '@/components/install-sheet'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
@@ -15,7 +20,7 @@ import { button } from '@/components/button'
 import { useMe, useMyFeed } from '@/lib/queries'
 import { useSession } from '@/lib/session'
 import { displayName, type MyClaim } from '@/lib/types'
-import { formatAmount, shortAddress } from '@/lib/tokens'
+import { formatAmount, formatUnits, shortAddress } from '@/lib/tokens'
 import { remaining } from '@/lib/time'
 import { errorMessage } from '@/lib/api'
 
@@ -24,8 +29,8 @@ export default function ProfilePage() {
   const me = useMe()
   const mine = useMyFeed()
   const [editing, setEditing] = useState(false)
-  const [copied, setCopied] = useState(false)
   const standalone = useStandalone()
+  const balance = useTokenBalance()
 
   if (ready && !authenticated) {
     return (
@@ -49,9 +54,12 @@ export default function ProfilePage() {
 
   async function copyAddress() {
     if (!user) return
-    await navigator.clipboard.writeText(user.pubkey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(user.pubkey)
+      toast('Wallet address copied')
+    } catch {
+      toast('Couldn’t copy. Long-press the address instead.')
+    }
   }
 
   return (
@@ -59,7 +67,7 @@ export default function ProfilePage() {
       <NavBar title="You" large />
       <main>
         {me.error && <Notice tone="error">{errorMessage(me.error)}</Notice>}
-        {!user && !me.error && <Notice>Loading…</Notice>}
+        {!user && !me.error && <SkeletonRows count={3} label="Loading your profile" />}
 
         {user && (
           <>
@@ -67,12 +75,12 @@ export default function ProfilePage() {
               <Avatar person={user} size={84} />
               {editing ? (
                 <div className="mt-4 w-full text-left">
-                  <NameForm user={user} onDone={() => setEditing(false)} />
+                  <NameForm user={user} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />
                 </div>
               ) : (
                 <>
                   <h1 className="mt-3 max-w-full truncate font-display text-[28px] leading-tight">{displayName(user)}</h1>
-                  <button type="button" onClick={() => setEditing(true)} className="press mt-1 text-[15px] text-moss">
+                  <button type="button" onClick={() => setEditing(true)} className="press h-11 px-3 text-[15px] text-moss">
                     Edit name
                   </button>
                 </>
@@ -84,20 +92,35 @@ export default function ProfilePage() {
               </dl>
             </section>
 
-            <ul className={`${groupedList} mt-6`}>
+            <SectionHeader id="wallet-heading">Wallet</SectionHeader>
+            <ul className={groupedList} aria-labelledby="wallet-heading">
+              <li className="flex min-h-[44px] items-center justify-between gap-4 px-4 py-2.5 text-[17px]">
+                <span>Balance</span>
+                <span className="tabular text-ink-soft">
+                  {balance.data === undefined
+                    ? '…'
+                    : `${formatUnits(balance.data, TOKENS[0].decimals)} ${TOKENS[0].symbol}`}
+                </span>
+              </li>
               <li>
                 <button
                   type="button"
                   onClick={copyAddress}
                   className="flex min-h-[44px] w-full items-center justify-between gap-4 px-4 py-2.5 text-[17px] transition-colors active:bg-paper-sunk"
                 >
-                  <span>Wallet</span>
-                  <span className="font-mono text-[15px] text-ink-soft">
-                    {copied ? 'Copied' : shortAddress(user.pubkey)}
+                  <span>Address</span>
+                  <span className="flex items-center gap-2 font-mono text-[15px] text-ink-soft">
+                    {shortAddress(user.pubkey)}
+                    <Copy className="h-4 w-4 text-moss" strokeWidth={2.25} aria-label="Copy" />
                   </span>
                 </button>
               </li>
             </ul>
+            {balance.data === 0 && CLUSTER === 'devnet' && (
+              <div className="px-8 pt-2">
+                <TokenBalance />
+              </div>
+            )}
           </>
         )}
 

@@ -29,7 +29,7 @@ export function ConfirmButton({
 
   const trigger =
     className ??
-    (variant === 'link' ? 'press w-full py-2 text-center text-[15px] text-wax' : `${button('danger')} w-full`)
+    (variant === 'link' ? 'press min-h-[44px] w-full text-center text-[15px] text-wax' : `${button('danger')} w-full`)
 
   return (
     <>

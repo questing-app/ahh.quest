@@ -10,6 +10,7 @@ import { Avatar } from './avatar'
 import { button } from './button'
 import { ConfirmButton } from './confirm-button'
 import { SectionHeader, groupedList } from './notice'
+import { toast } from './toast'
 
 export function Attempts({
   questId,
@@ -40,9 +41,10 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
   const decide = useMutation({
     mutationFn: (verdict: 'approve' | 'reject') =>
       api(`/api/claims/${claim.id}/${verdict}`, { method: 'POST' }),
-    onSuccess: () => {
+    onSuccess: (_, verdict) => {
       queryClient.invalidateQueries({ queryKey: ['quest', questId] })
       queryClient.invalidateQueries({ queryKey: ['mine'] })
+      toast(verdict === 'approve' ? 'Approved. They’ve been paid.' : 'Rejected. The reward is back with you.')
     },
   })
 
@@ -75,13 +77,13 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
                 {proof.aiReasoning && <p className="mt-1 text-ink-soft">{proof.aiReasoning}</p>}
               </>
             ) : (
-              <p className="text-ink-soft">The video is still being checked. This usually takes a minute or two.</p>
+              <p className="text-ink-soft">Checking the video. This usually takes a minute or two.</p>
             )}
 
             {canDecide && (
               <div className="mt-5 space-y-3">
-                <p className="text-sm text-ink-soft">
-                  It’s your call. If you don’t decide before the timer runs out, it’s approved automatically.
+                <p className="text-[15px] text-ink-soft">
+                  Your call. If you don’t decide in time, it’s approved automatically.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -90,7 +92,7 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
                     disabled={decide.isPending}
                     className={button()}
                   >
-                    Approve
+                    {decide.isPending && decide.variables === 'approve' ? 'Approving…' : 'Approve and pay'}
                   </button>
                   <ConfirmButton
                     label="Reject"
@@ -101,7 +103,11 @@ function Attempt({ questId, claim, canDecide }: { questId: string; claim: QuestC
                     onConfirm={() => decide.mutate('reject')}
                   />
                 </div>
-                {decide.error && <p className="text-sm text-wax">{errorMessage(decide.error)}</p>}
+                {decide.error && (
+                  <p role="alert" className="text-[15px] text-wax">
+                    {errorMessage(decide.error)}
+                  </p>
+                )}
               </div>
             )}
           </div>

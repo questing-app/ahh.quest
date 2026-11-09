@@ -7,6 +7,7 @@ import { CLUSTER, connection, useWallet } from '@/lib/chain'
 import { useApi } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 import { TOKENS, formatUnits } from '@/lib/tokens'
+import { toast } from './toast'
 
 const token = TOKENS[0]
 const MIN_FEE_LAMPORTS = 5_000_000
@@ -42,7 +43,10 @@ export function TokenBalance() {
 
   const faucet = useMutation({
     mutationFn: () => api('/api/dev/faucet', { method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['balance'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
+      toast('Test QUEST sent to your wallet')
+    },
   })
 
   if (tokens.data === undefined) return null
@@ -60,11 +64,15 @@ export function TokenBalance() {
             type="button"
             onClick={() => faucet.mutate()}
             disabled={faucet.isPending}
-            className="mt-1 text-moss underline-offset-4 hover:underline disabled:text-ink-soft"
+            className="press -my-1 min-h-[44px] text-moss disabled:text-ink-soft"
           >
             {faucet.isPending ? 'Sending test tokens…' : 'Get 1,000 test QUEST and fee money'}
           </button>
-          {faucet.error && <p className="mt-1 text-wax">{errorMessage(faucet.error)}</p>}
+          {faucet.error && (
+            <p role="alert" className="mt-1 text-wax">
+              {errorMessage(faucet.error)}
+            </p>
+          )}
         </>
       )}
     </div>

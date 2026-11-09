@@ -5,6 +5,7 @@ import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Avatar } from '@/components/avatar'
 import { Notice, SectionHeader, groupedList } from '@/components/notice'
+import { SkeletonRows } from '@/components/skeleton'
 import { QuestRow } from '@/components/quest-row'
 import { useQuestsBy, useUser } from '@/lib/queries'
 import { displayName } from '@/lib/types'
@@ -20,7 +21,7 @@ export default function PublicProfilePage() {
     <div className={TAB_BAR_SPACE}>
       <NavBar title={user.data ? displayName(user.data) : 'Profile'} back />
       <main>
-        {user.isPending && <Notice>Loading…</Notice>}
+        {user.isPending && <SkeletonRows count={3} label="Loading profile" />}
         {user.error && <Notice tone="error">{errorMessage(user.error)}</Notice>}
 
         {user.data && (
@@ -35,6 +36,7 @@ export default function PublicProfilePage() {
             </section>
 
             <SectionHeader id="their-quests">Quests posted</SectionHeader>
+            {quests.isPending && <SkeletonRows count={2} label="Loading quests" />}
             {quests.data?.length === 0 && <p className="px-8 text-[13px] text-ink-soft">None yet.</p>}
             {quests.data && quests.data.length > 0 && (
               <ul className={groupedList} aria-labelledby="their-quests">

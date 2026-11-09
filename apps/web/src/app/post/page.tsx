@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -15,9 +15,37 @@ import { errorMessage } from '@/lib/api'
 import { program, useSendTransaction, useWallet } from '@/lib/chain'
 import { TokenBalance, useTokenBalance } from '@/components/token-balance'
 import type { Quest } from '@/lib/types'
+import { toast } from '@/components/toast'
 import { MIN_REWARD_UNITS, TOKENS, feeFor, formatUnits, shortAddress, toUnits } from '@/lib/tokens'
 
-const STEPS = ['The challenge', 'The reward', 'Who and when', 'Check and post'] as const
+const STEPS = ['Challenge', 'Reward', 'Who and when', 'Review'] as const
+const HEADINGS = ['What do they have to do?', 'What’s it worth?', 'Who can take it?', 'Ready to post?']
+const DRAFT_KEY = 'quest.post.draft'
+
+type Draft = {
+  description: string
+  amount: string
+  questType: 'open' | 'direct'
+  target: string
+  timeLimit: number | null
+}
+
+function readDraft(): Partial<Draft> {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeDraft(draft: Draft | null) {
+  try {
+    if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    else localStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // Private mode: the draft just isn't kept.
+  }
+}
 const MAX_LENGTH = 280
 
 const EXAMPLES = [
@@ -48,8 +76,25 @@ export default function PostQuestPage() {
   const [target, setTarget] = useState('')
   const [timeLimit, setTimeLimit] = useState<number | null>(null)
   const [touched, setTouched] = useState(false)
+  const [restored, setRestored] = useState(false)
 
-  const [phase, setPhase] = useState<'idle' | 'signing' | 'saving'>('idle')
+  // Leaving for another tab shouldn't throw away what they typed.
+  useEffect(() => {
+    const draft = readDraft()
+    if (draft.description) setDescription(draft.description)
+    if (draft.amount) setAmount(draft.amount)
+    if (draft.questType) setQuestType(draft.questType)
+    if (draft.target) setTarget(draft.target)
+    if (draft.timeLimit !== undefined) setTimeLimit(draft.timeLimit)
+    setRestored(true)
+  }, [])
+  useEffect(() => {
+    if (!restored) return
+    const empty = !description && !amount && !target && questType === 'open' && timeLimit === null
+    writeDraft(empty ? null : { description, amount, questType, target, timeLimit })
+  }, [restored, description, amount, questType, target, timeLimit])
+
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'signing' | 'saving'>('idle')
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
   const balance = useTokenBalance()
@@ -81,6 +126,7 @@ export default function PostQuestPage() {
     mutationFn: async () => {
       if (!address || units === null) throw new Error('Your wallet is still loading.')
       const text = description.trim()
+      setPhase('checking')
       await api('/api/quests/check', { json: { description: text } })
 
       setPhase('signing')
@@ -99,13 +145,17 @@ export default function PostQuestPage() {
       const txSignature = await sendTransaction([ix])
 
       setPhase('saving')
-      return api<Quest>('/api/quests', { json: { description: text, onchainId: questId, txSignature } })
+      return api<Quest>('/api/quests', {
+        json: { description: text, onchainId: questId, txSignature },
+      })
     },
     onSuccess: (quest) => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['mine'] })
       queryClient.invalidateQueries({ queryKey: ['balance'] })
-      router.push(`/q/${quest.id}`)
+      writeDraft(null)
+      toast('Quest posted')
+      router.replace(`/q/${quest.id}`)
     },
     onSettled: () => setPhase('idle'),
   })
@@ -124,8 +174,7 @@ export default function PostQuestPage() {
         <main className="flex flex-col items-center px-8 pt-4 text-center">
           <Image src="/art/wallet.png" alt="" width={390} height={400} className="art-fade w-full max-w-[240px]" />
           <p className="mt-2 text-[17px] leading-relaxed text-ink-soft">
-            Sign in to post a quest. You’ll need a wallet to hold the reward, and we’ll make one for you if you
-            don’t have one.
+            Sign in to post a quest. We’ll set up a wallet to hold the reward if you don’t have one.
           </p>
           <button type="button" onClick={login} className={`${button()} mt-6 w-full`}>
             Sign in
@@ -137,19 +186,22 @@ export default function PostQuestPage() {
 
   const error = touched ? problems[step] : null
   const fee = units ? feeFor(units) : 0
-  const field = 'w-full rounded-[12px] bg-paper-raised px-4 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40'
+  const field =
+    'w-full rounded-[12px] bg-paper-raised px-4 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40'
 
   return (
     <div className="pb-[calc(49px+env(safe-area-inset-bottom)+96px)]">
       <NavBar
-        title={STEPS[step]}
-        back={step > 0}
+        title="New Quest"
+        back={step > 0 ? STEPS[step - 1] : false}
         onBack={() => setStep((s) => Math.max(0, s - 1))}
-        right={<span className="tabular text-[15px] text-ink-soft">{step + 1}/{STEPS.length}</span>}
       />
       <div className="mx-4 mt-1 flex gap-1.5" aria-hidden>
         {STEPS.map((label, i) => (
-          <span key={label} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= step ? 'bg-moss' : 'bg-ink/10'}`} />
+          <span
+            key={label}
+            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= step ? 'bg-moss' : 'bg-ink/10'}`}
+          />
         ))}
       </div>
 
@@ -161,14 +213,15 @@ export default function PostQuestPage() {
           else post.mutate()
         }}
       >
-        <h1 className="px-4 pt-5 font-display text-[30px] leading-tight text-moss">
-          {['What’s the dare?', 'What’s it worth?', 'Who can take it?', 'Look right?'][step]}
-        </h1>
+        <p className="tabular px-4 pt-4 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+          Step {step + 1} of {STEPS.length} · {STEPS[step]}
+        </p>
+        <h1 className="px-4 pt-1 font-display text-[30px] leading-tight text-moss">{HEADINGS[step]}</h1>
 
         {step === 0 && (
           <div className="mt-4 px-4">
             <label htmlFor="description" className="sr-only">
-              Describe exactly what counts as done
+              What counts as done
             </label>
             <textarea
               id="description"
@@ -176,7 +229,7 @@ export default function PostQuestPage() {
               maxLength={MAX_LENGTH}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Describe exactly what counts as done. The video is checked against these words."
+              placeholder="Be specific. The video is checked against exactly these words."
               className={`${field} resize-none py-3 leading-snug`}
             />
             <p className="tabular mt-1 text-right text-[13px] text-ink-soft">
@@ -186,7 +239,7 @@ export default function PostQuestPage() {
         )}
         {step === 0 && (
           <>
-            <SectionHeader>Need a spark?</SectionHeader>
+            <SectionHeader>Or start from an example</SectionHeader>
             <ul className={groupedList}>
               {EXAMPLES.map((example) => (
                 <li key={example}>
@@ -235,8 +288,18 @@ export default function PostQuestPage() {
           <>
             <SectionHeader>Who can take it</SectionHeader>
             <div className={groupedList} role="radiogroup">
-              <Choice selected={questType === 'open'} onSelect={() => setQuestType('open')} title="Anyone" detail="Shows up in the public list" />
-              <Choice selected={questType === 'direct'} onSelect={() => setQuestType('direct')} title="One person" detail="Only the wallet you name can claim it" />
+              <Choice
+                selected={questType === 'open'}
+                onSelect={() => setQuestType('open')}
+                title="Anyone"
+                detail="Shows up in the public list"
+              />
+              <Choice
+                selected={questType === 'direct'}
+                onSelect={() => setQuestType('direct')}
+                title="One person"
+                detail="Only the wallet you name can take it"
+              />
             </div>
             {questType === 'open' ? (
               <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
@@ -270,7 +333,9 @@ export default function PostQuestPage() {
                   aria-checked={timeLimit === option.hours}
                   onClick={() => setTimeLimit(option.hours)}
                   className={`chrome h-[32px] flex-1 rounded-[8px] text-[13px] transition-all ${
-                    timeLimit === option.hours ? 'bg-paper-raised font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.1)]' : 'text-ink'
+                    timeLimit === option.hours
+                      ? 'bg-paper-raised font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.1)]'
+                      : 'text-ink'
                   }`}
                 >
                   {option.label}
@@ -281,21 +346,29 @@ export default function PostQuestPage() {
         )}
 
         {step === 3 && units !== null && (
-          <div className={`${groupedList} mt-5`}>
-            <Summary label="Challenge" onEdit={() => setStep(0)}>
-              {description.trim()}
-            </Summary>
-            <Summary label="Reward" onEdit={() => setStep(1)}>
-              {formatUnits(units, token.decimals)} {token.symbol}
-              <span className="block text-[13px] text-ink-soft">Winner gets {formatUnits(units - fee, token.decimals)}</span>
-            </Summary>
-            <Summary label="Who" onEdit={() => setStep(2)}>
-              {questType === 'open' ? 'Anyone' : shortAddress(target.trim())}
-            </Summary>
-            <Summary label="Open for" onEdit={() => setStep(2)}>
-              {TIME_LIMITS.find((t) => t.hours === timeLimit)?.label}
-            </Summary>
-          </div>
+          <>
+            <div className={`${groupedList} mt-5`}>
+              <Summary label="Challenge" onEdit={() => setStep(0)}>
+                {description.trim()}
+              </Summary>
+              <Summary label="Reward" onEdit={() => setStep(1)}>
+                {formatUnits(units, token.decimals)} {token.symbol}
+                <span className="block text-[13px] text-ink-soft">
+                  Winner gets {formatUnits(units - fee, token.decimals)} after the 2.5% fee
+                </span>
+              </Summary>
+              <Summary label="Who" onEdit={() => setStep(2)}>
+                {questType === 'open' ? 'Anyone' : shortAddress(target.trim())}
+              </Summary>
+              <Summary label="Open for" onEdit={() => setStep(2)}>
+                {TIME_LIMITS.find((t) => t.hours === timeLimit)?.label}
+              </Summary>
+            </div>
+            <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
+              The reward is locked until a video is approved. You can cancel and get it back any time before someone
+              takes it. Your wallet also pays a small network fee.
+            </p>
+          </>
         )}
 
         {(error || post.error) && (
@@ -310,18 +383,30 @@ export default function PostQuestPage() {
         <button type="submit" form="post-form" disabled={post.isPending} className={`${button()} w-full`}>
           {step < STEPS.length - 1
             ? 'Continue'
-            : phase === 'signing'
-              ? 'Confirm in your wallet…'
-              : post.isPending
-                ? 'Posting…'
-                : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
+            : phase === 'checking'
+              ? 'Checking your quest…'
+              : phase === 'signing'
+                ? 'Confirm in your wallet…'
+                : post.isPending
+                  ? 'Posting…'
+                  : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
         </button>
       </div>
     </div>
   )
 }
 
-function Choice({ selected, onSelect, title, detail }: { selected: boolean; onSelect: () => void; title: string; detail: string }) {
+function Choice({
+  selected,
+  onSelect,
+  title,
+  detail,
+}: {
+  selected: boolean
+  onSelect: () => void
+  title: string
+  detail: string
+}) {
   return (
     <button
       type="button"
@@ -341,7 +426,11 @@ function Choice({ selected, onSelect, title, detail }: { selected: boolean; onSe
 
 function Summary({ label, onEdit, children }: { label: string; onEdit: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onEdit} className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk">
+    <button
+      type="button"
+      onClick={onEdit}
+      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk"
+    >
       <span className="w-[84px] shrink-0 text-[15px] text-ink-soft">{label}</span>
       <span className="min-w-0 flex-1 text-[15px] leading-snug">{children}</span>
       <span className="shrink-0 text-[15px] text-moss">Edit</span>

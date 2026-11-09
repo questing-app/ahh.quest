@@ -7,10 +7,21 @@ import { errorMessage } from '@/lib/api'
 import type { User } from '@/lib/types'
 import { hasDefaultName } from '@/lib/types'
 import { button } from './button'
+import { toast } from './toast'
 
 const NAME_PATTERN = /^[a-zA-Z0-9._]{3,30}$/
 
-export function NameForm({ user, onDone, submitLabel = 'Save' }: { user: User; onDone?: () => void; submitLabel?: string }) {
+export function NameForm({
+  user,
+  onDone,
+  onCancel,
+  submitLabel = 'Save',
+}: {
+  user: User
+  onDone?: () => void
+  onCancel?: () => void
+  submitLabel?: string
+}) {
   const api = useApi()
   const queryClient = useQueryClient()
   const [name, setName] = useState(hasDefaultName(user) ? '' : user.username)
@@ -20,6 +31,7 @@ export function NameForm({ user, onDone, submitLabel = 'Save' }: { user: User; o
     mutationFn: () => api<User>('/api/users/me', { method: 'PATCH', json: { username: name } }),
     onSuccess: (updated) => {
       queryClient.setQueryData(['me'], updated)
+      toast('Name saved')
       onDone?.()
     },
   })
@@ -49,9 +61,14 @@ export function NameForm({ user, onDone, submitLabel = 'Save' }: { user: User; o
           {save.isPending ? 'Saving…' : submitLabel}
         </button>
       </div>
-      <p className={`mt-2 text-[13px] ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
+      <p role={save.error ? 'alert' : undefined} className={`mt-2 text-[13px] ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
         {save.error ? errorMessage(save.error) : '3 to 30 letters, numbers, dots or underscores.'}
       </p>
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="press mt-1 h-11 w-full text-center text-[17px] text-moss">
+          Cancel
+        </button>
+      )}
     </form>
   )
 }
