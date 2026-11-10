@@ -209,7 +209,7 @@ export default function PostQuestPage() {
   return (
     <div className="pb-[calc(49px+env(safe-area-inset-bottom)+120px)]">
       <NavBar
-        title="New Quest"
+        title={step === 0 ? 'New Quest' : ''}
         back={step > 0 ? STEPS[step - 1] : false}
         onBack={() => setStep((s) => Math.max(0, s - 1))}
         left={
@@ -332,7 +332,7 @@ export default function PostQuestPage() {
                   Quest fee, 2.5%
                   <span className="block text-[13px] text-ink-soft">Comes out of the reward when it’s paid</span>
                 </dt>
-                <dd className="text-right text-ink-soft">
+                <dd className="shrink-0 whitespace-nowrap text-right text-ink-soft">
                   {formatUnits(fee, token.decimals)} {token.symbol}
                 </dd>
               </div>
@@ -429,7 +429,7 @@ export default function PostQuestPage() {
                 <dt>
                   Total from your wallet
                   <span className="block text-[13px] text-ink-soft">
-                    The 2.5% fee comes out of the reward, so the winner gets {formatUnits(units - fee, token.decimals)}
+                    The 2.5% fee comes out of the reward, so the winner gets {formatUnits(units - fee, token.decimals)} {token.symbol}
                   </span>
                 </dt>
                 <dd className="shrink-0 text-right font-semibold">

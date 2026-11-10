@@ -59,7 +59,7 @@ export function NavBar({ title, large = false, back = false, backHref = '/', rig
                 className="press flex h-11 items-center pr-2 text-[17px] text-moss"
               >
                 <ChevronLeft className="h-7 w-7" strokeWidth={2.25} aria-hidden />
-                <span className="-ml-0.5 max-w-[96px] truncate">{typeof back === 'string' ? back : 'Back'}</span>
+                <span className={`-ml-0.5 truncate ${title ? 'max-w-[96px]' : 'max-w-[220px]'}`}>{typeof back === 'string' ? back : 'Back'}</span>
               </button>
             )}
           </div>
