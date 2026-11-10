@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // The script below sets data-desktop before React hydrates.
     <html lang="en" className={display.variable} suppressHydrationWarning>
       <body className="min-h-[100dvh] bg-paper text-ink antialiased">
-        {/* A computer that chose "Use it on desktop" goes straight to the app, with no flash of the landing page. */}
+        {/* A computer that has opened the app before goes straight to the app, with no flash of the landing page. */}
         <script dangerouslySetInnerHTML={{ __html: DESKTOP_MODE }} />
         <DesktopGate />
         {/* On a computer this is the phone-width column the app lives in; on a phone it does nothing. */}

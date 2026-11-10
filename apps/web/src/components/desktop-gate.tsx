@@ -1,10 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { DESKTOP_KEY } from '@/lib/desktop'
 import { ArrowRight, Check, ChevronLeft, Compass, Inbox, Play, Plus, Search, UserRound } from 'lucide-react'
-
 
 function setDesktopApp(on: boolean) {
   if (on) document.documentElement.dataset.desktop = 'app'
@@ -18,26 +15,11 @@ function setDesktopApp(on: boolean) {
 }
 
 /**
- * What a computer (mouse + hover) sees instead of the app: the pitch, a code to open
- * it on a phone, and a way into the app in a phone-width column. CSS decides which
- * of the two is visible, so there is no flash on load; this only fills in the QR code.
+ * What a computer (mouse + hover) sees before the app: the pitch and one way in. The
+ * app then runs in a phone-width column. CSS decides which of the two is visible, so
+ * there is no flash on load.
  */
 export function DesktopGate() {
-  const [qr, setQr] = useState<string | null>(null)
-  const [url, setUrl] = useState('')
-
-  useEffect(() => {
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
-    const here = window.location.href
-    setUrl(window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname))
-    QRCode.toString(here, {
-      type: 'svg',
-      margin: 0,
-      errorCorrectionLevel: 'M',
-      color: { dark: '#26261F', light: '#00000000' },
-    }).then(setQr)
-  }, [])
-
   return (
     <>
       <div className="desktop-gate landing">
@@ -57,33 +39,13 @@ export function DesktopGate() {
             Post a challenge with a reward locked up. Whoever films it and gets approved is paid.
           </p>
 
-          <div className="mt-7 flex items-center gap-4 rounded-[20px] bg-paper-raised p-3 pr-7 text-left shadow-[0_1px_0_rgba(38,38,31,0.06),0_12px_32px_-12px_rgba(38,38,31,0.35)]">
-            <div className="h-[88px] w-[88px] shrink-0 rounded-[12px] bg-paper p-2">
-              {qr ? (
-                <div
-                  role="img"
-                  aria-label={`QR code for ${url}`}
-                  className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
-                  dangerouslySetInnerHTML={{ __html: qr }}
-                />
-              ) : (
-                <div className="h-full w-full rounded-md bg-paper-sunk" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[17px] font-semibold leading-snug">Open Quest on your phone</p>
-              <p className="mt-0.5 text-[14px] leading-snug text-ink-soft">Point your camera at the code.</p>
-              {url && <p className="mt-1.5 truncate font-mono text-[12px] text-ink-soft">{url}</p>}
-            </div>
-          </div>
-
           <button
             type="button"
             onClick={() => setDesktopApp(true)}
-            className="group mt-3 inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold text-moss-deep transition-colors hover:bg-paper-raised/80"
+            className="group mt-7 inline-flex h-[54px] items-center gap-2 rounded-full bg-moss px-8 text-[17px] font-semibold text-paper-raised shadow-[0_14px_30px_-12px_rgba(58,80,31,0.7)] transition-colors hover:bg-moss-deep"
           >
-            Use it on desktop
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
+            Open Quest
+            <ArrowRight className="h-[18px] w-[18px] transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
           </button>
         </main>
 

@@ -38,8 +38,8 @@
   }
 }
 
-/* A computer (mouse + hover) gets the landing page; "Use it on desktop" swaps it for
-   the app in a phone-width column. Phones never see any of this. */
+/* A computer (mouse + hover) gets the landing page; "Open Quest" swaps it for the app
+   in a phone-width column. Phones never see any of this. */
 .desktop-gate,
 .desktop-back {
   display: none;
@@ -115,7 +115,7 @@
     background-position: center bottom;
   }
 
-  /* Everything below the hero: the phone standing upright, pushed up out of the ground. */
+  /* Everything below the hero: the phone standing upright in the ground. */
   .landing-stage {
     position: relative;
     flex: 1;
@@ -123,7 +123,8 @@
   }
   .landing-phone {
     position: absolute;
-    top: 20px;
+    /* On a tall window it drops with the ground, so its foot stays buried. */
+    top: max(20px, calc(100% - 976px));
     left: 50%;
     /* The frame image at the scale that makes its screen 390px wide. */
     width: 433.4px;
@@ -152,7 +153,7 @@
     background: rgba(30, 34, 22, 0.5);
     filter: blur(24px);
   }
-  /* Light bursting out of the broken ground behind the phone, like the chest's. */
+  /* Light bursting up from the ground behind the phone, like the chest's. */
   .landing-glow {
     position: absolute;
     bottom: -150px;
@@ -177,14 +178,15 @@
     -webkit-mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
     mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
   }
-  /* The heap of earth the phone has come up through; it hides the phone's lower half. */
+  /* The art's own foreground, redrawn with a slight rise where the phone comes up. It is
+     cut from the same picture, so it is sized and placed exactly like the background. */
   .landing-ground {
     position: absolute;
-    bottom: -127px;
+    bottom: 0;
     left: 50%;
-    width: 1040px;
-    aspect-ratio: 3 / 1;
-    margin-left: -520px;
+    width: calc(max(100vw, 177.68vh, 1599px) * 0.4199);
+    aspect-ratio: 1536 / 406;
+    translate: -50% 0;
     background: url('/art/landing-ground.webp') center / 100% 100% no-repeat;
     pointer-events: none;
   }
