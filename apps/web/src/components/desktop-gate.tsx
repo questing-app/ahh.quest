@@ -95,7 +95,10 @@ export function DesktopGate() {
                 <div key={i} className="landing-phone-edge" style={{ transform: `translateZ(${-(i + 1) * 2}px)` }} />
               ))}
               <div className="landing-phone-body">
-                <PhoneScreen />
+                <div className="landing-phone-screen">
+                  <PhoneScreen />
+                </div>
+                <div className="landing-phone-frame" />
               </div>
             </div>
           </div>
@@ -149,7 +152,7 @@ const TABS = [
 function PhoneScreen() {
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[44px] bg-paper">
-      <div className="flex h-[54px] items-end justify-between px-9 pb-1.5 text-[16px] font-semibold">
+      <div className="flex h-[63px] items-center justify-between px-10 text-[16px] font-semibold">
         <span className="tabular">9:41</span>
         <span className="flex items-center gap-1.5">
           <span className="flex items-end gap-[2px]">
@@ -162,9 +165,8 @@ function PhoneScreen() {
           </span>
         </span>
       </div>
-      <div className="absolute left-1/2 top-[12px] h-[32px] w-[112px] -translate-x-1/2 rounded-full bg-night" />
 
-      <h2 className="px-4 pb-2 pt-4 font-display text-[34px] leading-[1.1] text-moss">Quests</h2>
+      <h2 className="px-4 pb-2 pt-2 font-display text-[34px] leading-[1.1] text-moss">Quests</h2>
 
       <div className="mx-4 flex h-9 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] px-2 text-[17px] text-ink-soft/80">
         <Search className="h-[18px] w-[18px]" strokeWidth={2.25} />
