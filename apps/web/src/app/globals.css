@@ -105,7 +105,7 @@
   /* ---- Landing page ---- */
   .landing {
     position: relative;
-    min-height: max(100vh, 780px);
+    min-height: max(100vh, 900px);
     flex-direction: column;
     overflow: hidden;
     background-color: theme('colors.paper.DEFAULT');
@@ -115,40 +115,26 @@
     background-position: center bottom;
   }
 
-  /* Everything below the hero: the phone lying back at an angle, cut off by the fold. */
+  /* Everything below the hero: the phone standing upright, pushed up out of the ground. */
   .landing-stage {
     position: relative;
     flex: 1;
-    min-height: 380px;
-    margin-top: -32px;
-    perspective: 2400px;
-    perspective-origin: 50% 0%;
-    -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+    min-height: 420px;
   }
-  .landing-tilt {
+  .landing-phone {
     position: absolute;
-    top: 60px;
+    top: 20px;
     left: 50%;
     /* The frame image at the scale that makes its screen 390px wide. */
     width: 433.4px;
     height: 886.2px;
     margin-left: -216.7px;
-    transform-style: preserve-3d;
-    animation: landing-rise 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: landing-emerge 1200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
-  .landing-phone {
-    position: absolute;
-    inset: 0;
-    transform-origin: 50% 0%;
-    /* Shifted left so the tilted body, not its top edge, sits under the headline. */
-    transform: translate(-150px, 24px) scale(1.02) rotateX(48deg) rotateZ(-24deg);
-    transform-style: preserve-3d;
-  }
-  .landing-phone-body,
   .landing-phone-frame {
     position: absolute;
     inset: 0;
+    background: url('/art/phone-frame.webp') center / 100% 100% no-repeat;
   }
   /* The app screen sits under the frame's glass; it runs 1px under the bezel all round. */
   .landing-phone-screen {
@@ -158,23 +144,49 @@
     width: calc(89.988% + 2px);
     height: calc(95.449% + 2px);
   }
-  .landing-phone-frame {
-    background: url('/art/phone-frame.webp') center / 100% 100% no-repeat;
-  }
-  /* The silhouette of the body in the image, minus the side buttons. */
-  .landing-phone-edge,
   .landing-phone-shadow {
     position: absolute;
-    inset: 0.3px 1.8px 0.3px 2.3px;
+    inset: 10px 6px 0;
     border-radius: 73.5px;
+    transform: translate(14px, 18px);
+    background: rgba(30, 34, 22, 0.5);
+    filter: blur(24px);
   }
-  .landing-phone-edge {
-    background: #33322d;
+  /* Light bursting out of the broken ground behind the phone, like the chest's. */
+  .landing-glow {
+    position: absolute;
+    bottom: -150px;
+    left: 50%;
+    width: 1000px;
+    height: 760px;
+    margin-left: -500px;
+    background: radial-gradient(
+      ellipse 50% 50% at 50% 50%,
+      rgb(255, 214, 105),
+      rgba(255, 208, 100, 0.78) 30%,
+      rgba(255, 214, 120, 0.3) 62%,
+      rgba(255, 220, 130, 0) 100%
+    );
+    animation: landing-glow 1600ms ease-out 300ms both;
   }
-  .landing-phone-shadow {
-    transform: translateZ(-30px) translate(-70px, 40px);
-    background: rgba(30, 34, 22, 0.55);
-    filter: blur(26px);
+  .landing-glow::before {
+    content: '';
+    position: absolute;
+    inset: -40px;
+    background: repeating-conic-gradient(from -4deg at 50% 50%, rgba(255, 232, 150, 0.85) 0 6deg, rgba(255, 232, 150, 0) 6deg 20deg);
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
+    mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
+  }
+  /* The heap of earth the phone has come up through; it hides the phone's lower half. */
+  .landing-ground {
+    position: absolute;
+    bottom: -127px;
+    left: 50%;
+    width: 1040px;
+    aspect-ratio: 3 / 1;
+    margin-left: -520px;
+    background: url('/art/landing-ground.webp') center / 100% 100% no-repeat;
+    pointer-events: none;
   }
 
   .landing-card {
@@ -190,20 +202,30 @@
     animation: landing-rise 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both, landing-float 7s ease-in-out 900ms infinite;
   }
   .landing-card-left {
-    top: 250px;
-    right: calc(50% + 330px);
-    animation-delay: 150ms, 1050ms;
+    top: 168px;
+    right: calc(50% + 252px);
+    animation-delay: 700ms, 1600ms;
   }
   .landing-card-right {
-    top: 96px;
-    left: calc(50% + 150px);
-    animation-delay: 300ms, 1200ms;
+    top: 64px;
+    left: calc(50% + 252px);
+    animation-delay: 850ms, 1750ms;
   }
 
   @keyframes landing-rise {
     from {
       opacity: 0;
       translate: 0 28px;
+    }
+  }
+  @keyframes landing-emerge {
+    from {
+      translate: 0 300px;
+    }
+  }
+  @keyframes landing-glow {
+    from {
+      opacity: 0;
     }
   }
   @keyframes landing-float {
@@ -218,7 +240,8 @@
   }
 }
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
-  .landing-tilt,
+  .landing-phone,
+  .landing-glow,
   .landing-card {
     animation: none;
   }

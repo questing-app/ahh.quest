@@ -88,20 +88,15 @@ export function DesktopGate() {
         </main>
 
         <div className="landing-stage" aria-hidden>
-          <div className="landing-tilt">
-            <div className="landing-phone">
-              <div className="landing-phone-shadow" />
-              {Array.from({ length: 9 }, (_, i) => (
-                <div key={i} className="landing-phone-edge" style={{ transform: `translateZ(${-(i + 1) * 2}px)` }} />
-              ))}
-              <div className="landing-phone-body">
-                <div className="landing-phone-screen">
-                  <PhoneScreen />
-                </div>
-                <div className="landing-phone-frame" />
-              </div>
+          <div className="landing-glow" />
+          <div className="landing-phone">
+            <div className="landing-phone-shadow" />
+            <div className="landing-phone-screen">
+              <PhoneScreen />
             </div>
+            <div className="landing-phone-frame" />
           </div>
+          <div className="landing-ground" />
 
           <div className="landing-card landing-card-left">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-moss-pale text-moss-deep">
