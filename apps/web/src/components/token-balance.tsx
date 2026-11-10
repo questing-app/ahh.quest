@@ -26,7 +26,8 @@ export function useTokenBalance() {
   })
 }
 
-function useSolBalance() {
+/** SOL held by the signed-in wallet, in lamports. It pays network fees. */
+export function useSolBalance() {
   const { address } = useWallet()
   return useQuery({
     queryKey: ['balance', 'sol', address],

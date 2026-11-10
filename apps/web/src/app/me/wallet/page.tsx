@@ -1,20 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { ChevronRight, Copy } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { Notice, SectionHeader, groupedList } from '@/components/notice'
 import { SkeletonRows } from '@/components/skeleton'
-import { TokenBalance, useTokenBalance } from '@/components/token-balance'
+import { useSolBalance, useTokenBalance } from '@/components/token-balance'
+import { Sheet } from '@/components/sheet'
 import { button } from '@/components/button'
 import { toast } from '@/components/toast'
 import { useMe, useMyFeed } from '@/lib/queries'
-import { useSession } from '@/lib/session'
+import { useApi, useSession } from '@/lib/session'
 import { CLUSTER, explorerAddress } from '@/lib/chain'
-import { TOKENS, feeFor, formatUnits, shortAddress, tokenForMint } from '@/lib/tokens'
-import { timeAgo } from '@/lib/time'
+import { TOKENS, feeFor, formatUnits, tokenForMint } from '@/lib/tokens'
 import { errorMessage } from '@/lib/api'
 import type { MyFeed } from '@/lib/types'
 
@@ -27,8 +27,8 @@ function entriesFrom(feed: MyFeed): Entry[] {
     out.push({
       key: `lock-${q.id}`,
       questId: q.id,
-      label: 'Locked for a quest',
-      detail: q.description,
+      label: 'Posted a quest',
+      detail: `${q.description} · locked`,
       units: -q.rewardAmount,
       mint: q.rewardMint,
       at: q.createdAt,
@@ -37,8 +37,8 @@ function entriesFrom(feed: MyFeed): Entry[] {
       out.push({
         key: `back-${q.id}`,
         questId: q.id,
-        label: 'Reward came back',
-        detail: q.description,
+        label: 'Got back',
+        detail: `${q.status === 'cancelled' ? 'Cancelled' : q.status === 'expired' ? 'Nobody took it' : 'Video rejected'}: ${q.description}`,
         units: q.rewardAmount,
         mint: q.rewardMint,
         // Quests closed before settle times were recorded fall back to the deadline.
@@ -53,7 +53,7 @@ function entriesFrom(feed: MyFeed): Entry[] {
     out.push({
       key: `stake-${c.id}`,
       questId: c.questId,
-      label: lost ? 'Deposit lost on a quest' : 'Deposit to take a quest',
+      label: lost ? 'Deposit lost' : 'Deposit',
       detail,
       units: -c.stakeAmount,
       mint,
@@ -63,7 +63,7 @@ function entriesFrom(feed: MyFeed): Entry[] {
       out.push({
         key: `paid-${c.id}`,
         questId: c.questId,
-        label: 'Paid for a quest',
+        label: 'Quest paid',
         detail,
         units: c.quest.rewardAmount - feeFor(c.quest.rewardAmount) + c.stakeAmount,
         mint,
@@ -77,7 +77,7 @@ function entriesFrom(feed: MyFeed): Entry[] {
     out.push({
       key: `kept-${k.id}`,
       questId: k.questId,
-      label: 'Kept a deposit',
+      label: 'Kept their deposit',
       detail: quest?.description ?? 'Quest',
       units: k.stakeAmount,
       mint: quest?.rewardMint ?? TOKENS[0].mint,
@@ -89,11 +89,25 @@ function entriesFrom(feed: MyFeed): Entry[] {
 
 export default function WalletPage() {
   const { ready, authenticated, login } = useSession()
+  const api = useApi()
+  const queryClient = useQueryClient()
   const me = useMe()
   const mine = useMyFeed()
   const balance = useTokenBalance()
+  const sol = useSolBalance()
   const token = TOKENS[0]
   const entries = useMemo(() => (mine.data ? entriesFrom(mine.data) : []), [mine.data])
+  const [receiving, setReceiving] = useState(false)
+
+  // On devnet, adding funds is the faucet.
+  const faucet = useMutation({
+    mutationFn: () => api('/api/dev/faucet', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['balance'] })
+      toast('Test QUEST and fee money added')
+    },
+    onError: (err) => toast(errorMessage(err)),
+  })
 
   const nav = <NavBar title="Wallet" back="You" backHref="/me" />
 
@@ -132,49 +146,32 @@ export default function WalletPage() {
 
         {user && (
           <>
-            <section className="mx-4 rounded-[16px] bg-paper-raised px-5 pb-5 pt-5">
-              <p className="text-[13px] uppercase tracking-wide text-ink-soft">
-                Balance{CLUSTER === 'devnet' && ' · test QUEST'}
+            <section className="px-4 pb-1 pt-3 text-center">
+              <p className="tabular font-display text-[44px] leading-none text-moss">
+                {balance.data === undefined ? '…' : formatUnits(balance.data, token.decimals)}
               </p>
-              <p className="mt-1 leading-none">
-                <span className="tabular font-display text-[46px] text-moss">
-                  {balance.data === undefined ? '…' : formatUnits(balance.data, token.decimals)}
-                </span>{' '}
-                <span className="text-lg font-semibold">{token.symbol}</span>
+              <p className="mt-1.5 text-[15px] font-semibold text-moss">
+                {token.symbol}
+                {CLUSTER === 'devnet' && <span className="font-normal text-ink-soft"> · test tokens</span>}
               </p>
-              {CLUSTER === 'devnet' && (
-                <div className="mt-4 border-t-[0.5px] border-ink/15 pt-4">
-                  <TokenBalance />
-                </div>
-              )}
+              <p className="tabular mt-1.5 text-[14px] text-ink-soft">
+                {sol.data === undefined ? '…' : formatSol(sol.data)} SOL for network fees
+              </p>
             </section>
 
-            <ul className={`${groupedList} mt-6`}>
-              <li>
-                <button
-                  type="button"
-                  onClick={copyAddress}
-                  className="flex min-h-[44px] w-full items-center justify-between gap-4 px-4 py-2.5 text-[17px] transition-colors active:bg-paper-sunk"
-                >
-                  <span>Address</span>
-                  <span className="flex items-center gap-2 font-mono text-[15px] text-ink-soft">
-                    {shortAddress(user.pubkey)}
-                    <Copy className="h-4 w-4 text-moss" strokeWidth={2.25} aria-label="Copy" />
-                  </span>
-                </button>
-              </li>
-              <li>
-                <a
-                  href={explorerAddress(user.pubkey)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-h-[44px] items-center justify-between gap-4 px-4 py-2.5 text-[17px] text-moss transition-colors active:bg-paper-sunk"
-                >
-                  View on explorer
-                  <span aria-hidden>↗</span>
-                </a>
-              </li>
-            </ul>
+            <div className="mx-4 mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => (CLUSTER === 'devnet' ? faucet.mutate() : setReceiving(true))}
+                disabled={faucet.isPending}
+                className={`${button()} flex-1`}
+              >
+                {faucet.isPending ? 'Adding…' : 'Add funds'}
+              </button>
+              <button type="button" onClick={copyAddress} className={`${button('outline')} flex-1`}>
+                Copy address
+              </button>
+            </div>
 
             <SectionHeader id="recent-heading">Recent</SectionHeader>
             {mine.isPending && <SkeletonRows count={3} label="Loading recent activity" />}
@@ -190,33 +187,67 @@ export default function WalletPage() {
                     <li key={e.key}>
                       <Link
                         href={`/q/${e.questId}`}
-                        className="flex items-center gap-3 py-3 pl-4 pr-2 transition-colors active:bg-paper-sunk"
+                        className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-paper-sunk"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[17px]">{e.label}</p>
-                          <p className="mt-0.5 truncate text-[13px] text-ink-soft">
-                            {timeAgo(e.at)} · {e.detail}
-                          </p>
+                          <p className="text-[16px] leading-snug">{e.label}</p>
+                          <p className="mt-0.5 truncate text-[13px] text-ink-soft">{e.detail}</p>
                         </div>
                         <span
-                          className={`tabular shrink-0 text-[15px] font-semibold ${e.units > 0 ? 'text-moss' : 'text-ink'}`}
+                          className={`tabular shrink-0 text-[16px] font-semibold ${e.units > 0 ? 'text-moss' : 'text-ink'}`}
                         >
                           {e.units > 0 ? '+' : '−'}
-                          {formatUnits(Math.abs(e.units), t.decimals)} {t.symbol}
+                          {formatUnits(Math.abs(e.units), t.decimals)}
                         </span>
-                        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
                       </Link>
                     </li>
                   )
                 })}
               </ul>
             )}
-            <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
-              Lists Quest activity only. Transfers made outside Quest show up on the explorer.
+
+            <p className="pt-4 text-center">
+              <a
+                href={explorerAddress(user.pubkey)}
+                target="_blank"
+                rel="noreferrer"
+                className="press inline-flex min-h-[44px] items-center text-[15px] text-moss"
+              >
+                View on Solana Explorer ↗
+              </a>
             </p>
+            <p className="px-8 text-center text-[13px] leading-relaxed text-ink-soft">
+              Recent lists Quest activity only. Everything else is on the explorer.
+            </p>
+
+            <Sheet open={receiving} onClose={() => setReceiving(false)} label="Add funds">
+              <h2 className="text-center font-display text-[24px] leading-tight">Add funds</h2>
+              <p className="mt-2 text-center text-[15px] leading-relaxed text-ink-soft">
+                Send {token.symbol} to this address from any Solana wallet or exchange. Add a little SOL too. It
+                pays the network fees.
+              </p>
+              <p className="mt-4 break-all rounded-[12px] bg-paper-sunk px-4 py-3 text-center font-mono text-[14px] leading-relaxed">
+                {user.pubkey}
+              </p>
+              <button type="button" onClick={copyAddress} className={`${button()} mt-4 w-full`}>
+                Copy address
+              </button>
+              <button
+                type="button"
+                onClick={() => setReceiving(false)}
+                className="press mt-1 h-11 w-full text-center text-[17px] text-moss"
+              >
+                Done
+              </button>
+            </Sheet>
           </>
         )}
       </main>
     </div>
   )
+}
+
+/** Lamports as SOL, to two places, without rounding a small balance up to look usable. */
+function formatSol(lamports: number): string {
+  return (Math.floor(lamports / 1e7) / 100).toFixed(2)
 }

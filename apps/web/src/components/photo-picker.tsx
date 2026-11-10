@@ -52,6 +52,7 @@ export function PhotoPicker({
   size = 84,
   caption = false,
   removable = false,
+  inline = false,
   ring = 'ring-paper-raised',
 }: {
   user: User
@@ -59,6 +60,8 @@ export function PhotoPicker({
   /** Show the "Add a photo" link under the avatar. */
   caption?: boolean
   removable?: boolean
+  /** Photo on the left with the link beside it, instead of a centred column. */
+  inline?: boolean
   /** Matches the badge's outline to whatever the avatar sits on. */
   ring?: string
 }) {
@@ -89,7 +92,7 @@ export function PhotoPicker({
   const pick = () => input.current?.click()
 
   return (
-    <div className="flex flex-col items-center">
+    <div className={inline ? 'flex flex-wrap items-center gap-x-3.5' : 'flex flex-col items-center'}>
       <button
         type="button"
         onClick={pick}
@@ -130,7 +133,7 @@ export function PhotoPicker({
         </button>
       )}
       {error && (
-        <p role="alert" className="mt-1 text-center text-[13px] text-wax">
+        <p role="alert" className={`mt-1 text-[13px] text-wax ${inline ? 'w-full' : 'text-center'}`}>
           {errorMessage(error)}
         </p>
       )}

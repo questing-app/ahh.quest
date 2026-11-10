@@ -10,12 +10,12 @@ const PAGE_SIZE = 20
 
 export type FeedFilter = 'all' | 'mine' | 'ending' | 'biggest'
 
-export function useFeed({ q = '', filter = 'all' }: { q?: string; filter?: FeedFilter } = {}) {
+export function useFeed({ q = '', filter = 'all', enabled = true }: { q?: string; filter?: FeedFilter; enabled?: boolean } = {}) {
   const { token, ready } = useSession()
   return useInfiniteQuery({
     queryKey: ['feed', q, filter, filter === 'mine' && Boolean(token)],
     initialPageParam: 0,
-    enabled: filter !== 'mine' || ready,
+    enabled: enabled && (filter !== 'mine' || ready),
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(pageParam) })
       if (q) params.set('q', q)
@@ -79,5 +79,14 @@ export function useQuestsBy(creatorId: string | undefined) {
     queryKey: ['quests', 'by', creatorId],
     queryFn: () => apiFetch<Quest[]>(`/api/quests?creator=${creatorId}&limit=50`),
     enabled: Boolean(creatorId),
+  })
+}
+
+/** Quests this person finished and was paid for. */
+export function useQuestsWonBy(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['quests', 'won', userId],
+    queryFn: () => apiFetch<Quest[]>(`/api/quests?winner=${userId}&limit=50`),
+    enabled: Boolean(userId),
   })
 }

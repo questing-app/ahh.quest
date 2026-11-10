@@ -4,19 +4,18 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { SectionHeader, groupedList } from '@/components/notice'
+import { Segmented } from '@/components/segmented'
 import { button } from '@/components/button'
 import { createQuestIx, fetchConfig, sha256 } from '@quest/sdk'
 import { useApi, useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 import { CLUSTER, program, useSendTransaction, useWallet } from '@/lib/chain'
-import { TokenBalance, useTokenBalance } from '@/components/token-balance'
+import { useTokenBalance } from '@/components/token-balance'
 import { useOnline } from '@/lib/network'
 import type { Quest } from '@/lib/types'
-import { toast } from '@/components/toast'
 import { MIN_REWARD_UNITS, TOKENS, feeFor, formatUnits, shortAddress, toUnits } from '@/lib/tokens'
 
 const STEPS = ['Challenge', 'Reward', 'Who and when', 'Review'] as const
@@ -49,11 +48,20 @@ function writeDraft(draft: Draft | null) {
 }
 const MAX_LENGTH = 280
 
-const EXAMPLES = [
-  'Order at a drive-through wearing a full suit of armour',
-  'Eat a whole lemon, peel and all, without pulling a face',
-  'Get a stranger to teach you a dance move, then do it with them',
+/** Short label on the chip, full wording in the field. */
+const IDEAS = [
+  { label: 'Cold shower, 60 s', text: 'Stand under a fully cold shower for 60 seconds' },
+  { label: 'Eat a whole lemon', text: 'Eat a whole lemon, peel and all' },
+  { label: 'Sing in public', text: 'Sing a full chorus out loud in a busy public place' },
+  { label: 'Plank for 3 minutes', text: 'Hold a plank for 3 minutes without dropping' },
 ]
+
+const QUICK_AMOUNTS = ['10', '25', '50', '100']
+
+const chip =
+  'press rounded-full border border-[#D8CDB3] bg-paper-raised px-3 py-[7px] text-[13px] leading-none whitespace-nowrap'
+const chipOn = 'press rounded-full border border-ink bg-ink px-3 py-[7px] text-[13px] leading-none whitespace-nowrap text-paper-raised'
+const line = 'flex items-start justify-between gap-3 px-4 py-2.5 text-[15px]'
 
 const TIME_LIMITS = [
   { label: 'No limit', hours: null },
@@ -199,17 +207,31 @@ export default function PostQuestPage() {
     'w-full rounded-[12px] bg-paper-raised px-4 text-[17px] placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-moss/40'
 
   return (
-    <div className="pb-[calc(49px+env(safe-area-inset-bottom)+96px)]">
+    <div className="pb-[calc(49px+env(safe-area-inset-bottom)+120px)]">
       <NavBar
         title="New Quest"
         back={step > 0 ? STEPS[step - 1] : false}
         onBack={() => setStep((s) => Math.max(0, s - 1))}
+        left={
+          step === 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                writeDraft(null)
+                router.push('/')
+              }}
+              className="press flex h-11 items-center px-2 text-[17px] text-moss"
+            >
+              Cancel
+            </button>
+          ) : undefined
+        }
       />
       <div className="mx-4 mt-1 flex gap-1.5" aria-hidden>
         {STEPS.map((label, i) => (
           <span
             key={label}
-            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= step ? 'bg-moss' : 'bg-ink/10'}`}
+            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= step ? 'bg-moss' : 'bg-rule'}`}
           />
         ))}
       </div>
@@ -238,89 +260,108 @@ export default function PostQuestPage() {
               maxLength={MAX_LENGTH}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Be specific. The video is checked against exactly these words."
+              placeholder="Do 50 pushups in under 2 minutes"
               className={`${field} resize-none py-3 leading-snug`}
             />
-            <p className="tabular mt-1 text-right text-[13px] text-ink-soft">
-              {description.length}/{MAX_LENGTH}
+            <p className="tabular mt-1.5 flex justify-between gap-3 text-[13px] text-ink-soft">
+              <span>Make it something one video can prove.</span>
+              <span>
+                {description.length}/{MAX_LENGTH}
+              </span>
             </p>
-          </div>
-        )}
-        {step === 0 && (
-          <>
-            <SectionHeader>Or start from an example</SectionHeader>
-            <ul className={groupedList}>
-              {EXAMPLES.map((example) => (
-                <li key={example}>
-                  <button
-                    type="button"
-                    onClick={() => setDescription(example)}
-                    className="w-full px-4 py-3 text-left text-[15px] leading-snug text-moss transition-colors active:bg-paper-sunk"
-                  >
-                    {example}
-                  </button>
-                </li>
+
+            <h2 className="mt-6 text-[13px] font-semibold uppercase tracking-wide text-ink-soft">Need an idea?</h2>
+            <div className="mt-2 flex flex-wrap gap-[7px]">
+              {IDEAS.map((idea) => (
+                <button key={idea.label} type="button" onClick={() => setDescription(idea.text)} className={chip}>
+                  {idea.label}
+                </button>
               ))}
-            </ul>
-          </>
+            </div>
+          </div>
         )}
 
         {step === 1 && (
-          <div className="mt-4 px-4">
-            <TokenBalance />
-            {CLUSTER === 'devnet' && (
-              <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
-                Testing on devnet: post any amount. If you don’t hold enough, the missing test QUEST is added to
-                your wallet when you post.
+          <>
+            <div className="px-4">
+              <label htmlFor="amount" className="sr-only">
+                Reward
+              </label>
+              <div className="flex items-baseline justify-center gap-2 pb-1 pt-5">
+                <input
+                  id="amount"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="0"
+                  size={Math.max(1, amount.length)}
+                  className="tabular min-w-[1ch] max-w-full bg-transparent text-center font-display text-[56px] leading-none text-moss placeholder:text-ink/20 focus:outline-none"
+                />
+                <span className="text-[18px] font-semibold text-moss">{token.symbol}</span>
+              </div>
+              <p className="tabular text-center text-[14px] text-ink-soft">
+                {balance.data === undefined
+                  ? '\u00a0'
+                  : `You have ${formatUnits(balance.data, token.decimals)} ${token.symbol}`}
               </p>
-            )}
-
-            <label htmlFor="amount" className="sr-only">
-              Reward
-            </label>
-            <div className="mt-6 flex items-baseline justify-center gap-2 rounded-[16px] bg-paper-raised px-4 py-6">
-              <input
-                id="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
-                placeholder="0"
-                size={Math.max(1, amount.length)}
-                className="tabular min-w-[1ch] max-w-full bg-transparent text-center font-display text-[56px] leading-none text-moss placeholder:text-ink/20 focus:outline-none"
-              />
-              <span className="text-[20px] font-semibold text-ink-soft">{token.symbol}</span>
+              <div className="mt-3 flex flex-wrap justify-center gap-[7px]">
+                {QUICK_AMOUNTS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={amount === value}
+                    onClick={() => setAmount(value)}
+                    className={`tabular ${amount === value ? chipOn : chip}`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
             </div>
-            {units !== null && units >= MIN_REWARD_UNITS && (
-              <p className="tabular mt-3 text-center text-[15px] text-ink-soft">
-                Winner gets {formatUnits(units - fee, token.decimals)} {token.symbol} after the 2.5% fee
+
+            <dl className={`${groupedList} tabular mt-5`}>
+              <div className={line}>
+                <dt>Reward, locked up</dt>
+                <dd className="text-right text-ink-soft">
+                  {formatUnits(units ?? 0, token.decimals)} {token.symbol}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>
+                  Quest fee, 2.5%
+                  <span className="block text-[13px] text-ink-soft">Comes out of the reward when it’s paid</span>
+                </dt>
+                <dd className="text-right text-ink-soft">
+                  {formatUnits(fee, token.decimals)} {token.symbol}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>Network fee</dt>
+                <dd className="text-right text-ink-soft">under 0.01 SOL</dd>
+              </div>
+            </dl>
+            {CLUSTER === 'devnet' && (
+              <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
+                These are test tokens. If you don’t hold enough, the rest is added to your wallet when you post.
               </p>
             )}
-          </div>
+          </>
         )}
 
         {step === 2 && (
           <>
-            <SectionHeader>Who can take it</SectionHeader>
-            <div className={groupedList} role="radiogroup">
-              <Choice
-                selected={questType === 'open'}
-                onSelect={() => setQuestType('open')}
-                title="Anyone"
-                detail="Shows up in the public list"
-              />
-              <Choice
-                selected={questType === 'direct'}
-                onSelect={() => setQuestType('direct')}
-                title="One person"
-                detail="Only the wallet you name can take it"
-              />
-            </div>
-            {questType === 'open' ? (
-              <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
-                One person takes it at a time. If they give up or run out of time, it opens again.
-              </p>
-            ) : (
+            <Segmented
+              label="Who can take it"
+              className="mx-4 mt-4"
+              value={questType}
+              onChange={setQuestType}
+              options={[
+                { id: 'open', label: 'Anyone' },
+                { id: 'direct', label: 'One person' },
+              ]}
+            />
+            {questType === 'direct' && (
               <div className="px-4 pt-3">
                 <label htmlFor="target" className="sr-only">
                   Their Solana wallet address
@@ -337,40 +378,46 @@ export default function PostQuestPage() {
                 />
               </div>
             )}
+            <p className="px-4 pt-3 text-[14px] leading-relaxed text-ink-soft">
+              {questType === 'open'
+                ? 'The first person to take it gets 24 hours to film it.'
+                : 'Only that wallet can take it. They get 24 hours to film it.'}
+            </p>
 
-            <SectionHeader>Stays open for</SectionHeader>
-            <div className="mx-4 flex rounded-[10px] bg-ink/[0.07] p-0.5" role="radiogroup">
+            <SectionHeader id="open-for">How long is it open?</SectionHeader>
+            <div className={groupedList} role="radiogroup" aria-labelledby="open-for">
               {TIME_LIMITS.map((option) => (
-                <button
+                <Choice
                   key={option.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={timeLimit === option.hours}
-                  onClick={() => setTimeLimit(option.hours)}
-                  className={`chrome h-[32px] flex-1 rounded-[8px] text-[13px] transition-all ${
-                    timeLimit === option.hours
-                      ? 'bg-paper-raised font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.1)]'
-                      : 'text-ink'
-                  }`}
-                >
-                  {option.label}
-                </button>
+                  selected={timeLimit === option.hours}
+                  onSelect={() => setTimeLimit(option.hours)}
+                  title={option.label}
+                />
               ))}
             </div>
+            <p className="px-4 pt-3 text-[14px] leading-relaxed text-ink-soft">
+              {timeLimit === null
+                ? 'It stays open until someone takes it or you cancel.'
+                : 'If nobody takes it in time, the reward comes back to you.'}
+            </p>
           </>
         )}
 
         {step === 3 && units !== null && (
           <>
-            <div className={`${groupedList} mt-5`}>
-              <Summary label="Challenge" onEdit={() => setStep(0)}>
-                {description.trim()}
-              </Summary>
+            <div className="mx-4 mt-4 rounded-[14px] border border-rule bg-paper-raised px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-ink-soft">Challenge</span>
+                <button type="button" onClick={() => setStep(0)} className="press -my-3 py-3 pl-4 text-[14px] text-moss">
+                  Edit
+                </button>
+              </div>
+              <p className="mt-1 break-words text-[16px] font-bold leading-[1.3]">{description.trim()}</p>
+            </div>
+
+            <dl className={`${groupedList} tabular mt-3`}>
               <Summary label="Reward" onEdit={() => setStep(1)}>
                 {formatUnits(units, token.decimals)} {token.symbol}
-                <span className="block text-[13px] text-ink-soft">
-                  Winner gets {formatUnits(units - fee, token.decimals)} after the 2.5% fee
-                </span>
               </Summary>
               <Summary label="Who" onEdit={() => setStep(2)}>
                 {questType === 'open' ? 'Anyone' : shortAddress(target.trim())}
@@ -378,10 +425,22 @@ export default function PostQuestPage() {
               <Summary label="Open for" onEdit={() => setStep(2)}>
                 {TIME_LIMITS.find((t) => t.hours === timeLimit)?.label}
               </Summary>
-            </div>
-            <p className="px-8 pt-2 text-[13px] leading-relaxed text-ink-soft">
-              The reward is locked until a video is approved. You can cancel and get it back any time before someone
-              takes it. Your wallet also pays a small network fee.
+              <div className={line}>
+                <dt>
+                  Total from your wallet
+                  <span className="block text-[13px] text-ink-soft">
+                    The 2.5% fee comes out of the reward, so the winner gets {formatUnits(units - fee, token.decimals)}
+                  </span>
+                </dt>
+                <dd className="shrink-0 text-right font-semibold">
+                  {formatUnits(units, token.decimals)} {token.symbol}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mx-4 mt-3 rounded-[14px] border border-[#C9D1AE] bg-moss-pale px-4 py-3 text-[13px] leading-[1.45] text-moss-deep">
+              The reward is locked until a video is approved. Cancel any time before someone takes it and you get it all
+              back.
             </p>
           </>
         )}
@@ -402,7 +461,7 @@ export default function PostQuestPage() {
           className={`${button()} w-full`}
         >
           {step < STEPS.length - 1
-            ? 'Continue'
+            ? 'Next'
             : !online
               ? 'You’re offline'
               : phase === 'checking'
@@ -415,49 +474,42 @@ export default function PostQuestPage() {
                   ? 'Posting…'
                   : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
         </button>
+        {step === STEPS.length - 1 && (
+          <p className="pt-1.5 text-center text-[12px] text-ink-soft">Your wallet will ask you to confirm</p>
+        )}
       </div>
     </div>
   )
 }
 
-function Choice({
-  selected,
-  onSelect,
-  title,
-  detail,
-}: {
-  selected: boolean
-  onSelect: () => void
-  title: string
-  detail: string
-}) {
+function Choice({ selected, onSelect, title }: { selected: boolean; onSelect: () => void; title: string }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk"
+      className="flex min-h-[46px] w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[16px] transition-colors active:bg-paper-sunk"
     >
-      <span className="min-w-0 flex-1">
-        <span className="block text-[17px]">{title}</span>
-        <span className="mt-0.5 block text-[13px] text-ink-soft">{detail}</span>
-      </span>
-      {selected && <Check className="h-5 w-5 shrink-0 text-moss" strokeWidth={2.75} aria-hidden />}
+      {title}
+      <span
+        aria-hidden
+        className={`h-5 w-5 shrink-0 rounded-full ${selected ? 'border-[6px] border-moss' : 'border-2 border-[#D8CDB3]'}`}
+      />
     </button>
   )
 }
 
 function Summary({ label, onEdit, children }: { label: string; onEdit: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onEdit}
-      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors active:bg-paper-sunk"
-    >
-      <span className="w-[84px] shrink-0 text-[15px] text-ink-soft">{label}</span>
-      <span className="min-w-0 flex-1 text-[15px] leading-snug">{children}</span>
-      <span className="shrink-0 text-[15px] text-moss">Edit</span>
-    </button>
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-[15px]">
+      <dt>{label}</dt>
+      <dd className="flex min-w-0 items-center gap-3 text-right text-ink-soft">
+        <span className="min-w-0 truncate">{children}</span>
+        <button type="button" onClick={onEdit} className="press -my-3 shrink-0 py-3 text-[14px] text-moss">
+          Edit
+        </button>
+      </dd>
+    </div>
   )
 }

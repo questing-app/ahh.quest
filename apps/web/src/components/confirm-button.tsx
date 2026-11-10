@@ -14,14 +14,17 @@ export function ConfirmButton({
   pending,
   variant = 'danger',
   className,
+  ariaLabel,
 }: {
-  label: string
+  label: React.ReactNode
   question: string
   confirmLabel: string
   onConfirm: () => void
   pending?: boolean
   variant?: 'danger' | 'link'
   className?: string
+  /** For triggers that show an icon instead of words. */
+  ariaLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -33,7 +36,7 @@ export function ConfirmButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} disabled={pending} className={trigger}>
+      <button type="button" onClick={() => setOpen(true)} disabled={pending} aria-label={ariaLabel} className={trigger}>
         {pending ? 'Working…' : label}
       </button>
       {mounted &&

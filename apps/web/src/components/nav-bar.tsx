@@ -13,11 +13,13 @@ type Props = {
   /** Where back goes when there is no history (e.g. opened from a shared link). */
   backHref?: string
   right?: React.ReactNode
+  /** Replaces the back button, e.g. “Cancel” on the first step of a form. */
+  left?: React.ReactNode
   /** Overrides what back does, e.g. stepping back inside a form. */
   onBack?: () => void
 }
 
-export function NavBar({ title, large = false, back = false, backHref = '/', right, onBack }: Props) {
+export function NavBar({ title, large = false, back = false, backHref = '/', right, left, onBack }: Props) {
   const router = useRouter()
   const sentinel = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
@@ -49,7 +51,8 @@ export function NavBar({ title, large = false, back = false, backHref = '/', rig
       >
         <div className="relative flex h-11 items-center justify-between px-2">
           <div className="flex min-w-[72px] items-center">
-            {back && (
+            {left}
+            {!left && back && (
               <button
                 type="button"
                 onClick={goBack}

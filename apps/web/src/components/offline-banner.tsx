@@ -34,7 +34,7 @@ export function OfflineBanner() {
     >
       <div className="flex h-9 items-center justify-between gap-3 px-4">
         <span className="min-w-0 truncate">
-          {online ? 'Quest isn’t answering right now.' : 'You’re offline. Showing what was already loaded.'}
+          {online ? 'Quest isn’t answering right now.' : 'You’re offline. Showing what was loaded.'}
         </span>
         <button
           type="button"
@@ -42,7 +42,7 @@ export function OfflineBanner() {
           disabled={trying}
           className="press shrink-0 font-semibold text-moss-pale disabled:opacity-60"
         >
-          {trying ? 'Trying…' : 'Try again'}
+          {trying ? 'Trying…' : online ? 'Try again' : 'Retry'}
         </button>
       </div>
     </div>

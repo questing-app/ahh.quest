@@ -1,7 +1,7 @@
 import { eq, desc, and, sql, inArray } from 'drizzle-orm'
 import { bytesToHex, escrowPda, fetchQuest, questPda, variant } from '@quest/sdk'
 import { nanoid } from 'nanoid'
-import { quests, users } from '../db/schema'
+import { claims, quests, users } from '../db/schema'
 import type { Database } from '../db/client'
 import { getProgram } from '../lib/solana'
 import { BadRequest } from '../lib/errors'
@@ -77,6 +77,8 @@ export async function listQuests(
     status?: string
     questType?: string
     creator?: string
+    /** Quests this user completed and was paid for. */
+    winner?: string
     limit?: number
     offset?: number
   },
@@ -91,6 +93,15 @@ export async function listQuests(
   }
   if (filters.creator) {
     conditions.push(eq(quests.creatorId, filters.creator))
+  }
+  if (filters.winner) {
+    conditions.push(
+      inArray(
+        quests.id,
+        db.select({ id: claims.questId }).from(claims)
+          .where(and(eq(claims.claimerId, filters.winner), eq(claims.status, 'approved'))),
+      ),
+    )
   }
 
   const limit = Math.min(filters.limit || 20, 50)

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion'
-import { Share, SquarePlus } from 'lucide-react'
 import { button } from './button'
 
 // Chrome/Android fire this so the page can show its own install button.
@@ -130,35 +129,25 @@ export function InstallSheet() {
                 alt=""
                 width={64}
                 height={64}
-                className="h-16 w-16 shrink-0 rounded-[15px] shadow-[0_2px_8px_rgba(38,38,31,0.18)]"
+                className="h-[60px] w-[60px] shrink-0 rounded-[14px] shadow-[0_2px_8px_rgba(38,38,31,0.18)]"
               />
               <div className="min-w-0">
-                <h2 id="install-title" className="text-[20px] font-semibold leading-tight">
+                <h2 id="install-title" className="text-[19px] font-bold leading-tight">
                   Get the Quest app
                 </h2>
-                <p className="mt-1 text-[15px] leading-snug text-ink-soft">
-                  Add it to your Home Screen. It opens full screen, with no browser bars.
-                </p>
+                <p className="mt-1 text-[15px] leading-snug text-ink-soft">Opens full screen, with no browser bars.</p>
               </div>
             </div>
 
             {deferred ? (
               <button type="button" onClick={install} className={`${button()} mt-6 w-full`}>
-                Add to Home Screen
+                Install
               </button>
             ) : (
-              <ol className="mt-6 divide-y-[0.5px] divide-ink/15 overflow-hidden rounded-[12px] bg-paper">
-                <Step n={1} icon={<Share className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />}>
-                  Tap <strong className="font-semibold">Share</strong> in Safari’s toolbar
-                  <span className="block text-[13px] text-ink-soft">On newer iPhones it’s under the ••• button</span>
-                </Step>
-                <Step n={2} icon={<SquarePlus className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />}>
-                  Choose <strong className="font-semibold">Add to Home Screen</strong>
-                  <span className="block text-[13px] text-ink-soft">Scroll the list down if you don’t see it</span>
-                </Step>
-                <Step n={3} icon={<span className="font-display text-[17px] leading-none">Q</span>}>
-                  Open <strong className="font-semibold">Quest</strong> from your Home Screen
-                </Step>
+              <ol className="mt-6 divide-y divide-rule rounded-[14px] border border-rule bg-paper px-3.5">
+                <Step n={1} title="Tap Share" detail="In Safari’s toolbar, or under •••" />
+                <Step n={2} title="Add to Home Screen" detail="Scroll the list if you don’t see it" />
+                <Step n={3} title="Open Quest from your Home Screen" />
               </ol>
             )}
 
@@ -172,17 +161,19 @@ export function InstallSheet() {
   )
 }
 
-function Step({ n, icon, children }: { n: number; icon: React.ReactNode; children: React.ReactNode }) {
+function Step({ n, title, detail }: { n: number; title: string; detail?: string }) {
   return (
-    <li className="flex items-center gap-3.5 px-4 py-3">
-      <span className="sr-only">Step {n}.</span>
+    <li className="flex items-center gap-3.5 py-2.5">
       <span
         aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-paper-raised text-moss shadow-[0_0_0_0.5px_rgba(38,38,31,0.15)]"
+        className="tabular flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[17px] text-moss-deep"
       >
-        {icon}
+        {n}
       </span>
-      <span className="text-[15px] leading-snug">{children}</span>
+      <span className="min-w-0">
+        <span className="block text-[16px] font-semibold leading-snug">{title}</span>
+        {detail && <span className="block text-[14px] leading-snug text-ink-soft">{detail}</span>}
+      </span>
     </li>
   )
 }

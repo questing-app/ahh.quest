@@ -16,7 +16,7 @@ import { useMe, useQuest, useQuestClaims } from '@/lib/queries'
 import { useApi } from '@/lib/session'
 import { displayName } from '@/lib/types'
 import { formatUnits, tokenForMint } from '@/lib/tokens'
-import { remaining, timeAgo } from '@/lib/time'
+import { formatClock, roughLeft, timeAgo } from '@/lib/time'
 import { errorMessage } from '@/lib/api'
 
 const MAX_REASON = 280
@@ -49,7 +49,7 @@ export default function ReviewPage() {
     },
   })
 
-  const back = <NavBar title="Review" back="Quest" backHref={`/q/${id}`} />
+  const back = <NavBar title="Review" back="Activity" backHref="/activity" />
 
   if (quest.isPending || claims.isPending || !me) {
     return (
@@ -86,7 +86,7 @@ export default function ReviewPage() {
   const token = tokenForMint(q.rewardMint)
   const amount = (units: number) => `${formatUnits(units, token.decimals)} ${token.symbol}`
   const who = displayName(claim.claimer)
-  const left = claim.reviewDeadline ? remaining(claim.reviewDeadline) : null
+  const left = claim.reviewDeadline ? roughLeft(claim.reviewDeadline) : null
   const verdictTone =
     proof.aiDecision === 'APPROVE' ? 'bg-moss-pale text-moss-deep' : proof.aiDecision === 'REJECT' ? 'bg-wax/10 text-wax' : 'bg-[#F3E3C4] text-[#6E4310]'
   const verdictLabel =
@@ -96,7 +96,10 @@ export default function ReviewPage() {
     <div className="pb-[calc(49px+env(safe-area-inset-bottom)+150px)]">
       {back}
       <main className="px-4">
-        <p className="line-clamp-2 pt-1 text-[15px] leading-snug text-ink-soft">{q.description}</p>
+        <h2 className="tabular pt-1 text-[20px] font-bold leading-tight">
+          {who}’s video · {formatClock(proof.durationSeconds)}
+        </h2>
+        <p className="mt-1 line-clamp-2 text-[15px] leading-snug text-ink-soft">{q.description}</p>
         <video
           src={proof.videoUrl}
           poster={proof.thumbnailUrl ?? undefined}
@@ -111,9 +114,9 @@ export default function ReviewPage() {
           <span className="text-ink-soft">· sent {timeAgo(proof.createdAt)}</span>
         </div>
 
-        <section className="mt-4 rounded-[16px] bg-paper-raised px-4 py-3.5" aria-label="Video check">
+        <section className="mt-4 rounded-[16px] bg-paper-raised px-4 py-3.5" aria-label="AI check">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[15px] font-semibold">Video check</p>
+            <p className="text-[15px] font-semibold">AI check</p>
             {proof.aiConfidence !== null && (
               <span className={`tabular rounded-full px-2.5 py-1 text-[12px] font-semibold ${verdictTone}`}>
                 {verdictLabel} · {proof.aiConfidence}%
@@ -142,7 +145,7 @@ export default function ReviewPage() {
           <button type="button" onClick={() => decide.mutate('approve')} disabled={decide.isPending} className={`${button()} w-full`}>
             {decide.isPending && decide.variables === 'approve' ? 'Paying…' : `Approve and pay ${amount(q.rewardAmount)}`}
           </button>
-          <button type="button" onClick={() => setRejecting(true)} disabled={decide.isPending} className={`${button('danger')} w-full`}>
+          <button type="button" onClick={() => setRejecting(true)} disabled={decide.isPending} className={`${button('outline')} w-full`}>
             Reject
           </button>
         </div>

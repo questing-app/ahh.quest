@@ -58,6 +58,7 @@ questRoutes.get('/', optionalAuthMiddleware, async (c) => {
     status: c.req.query('status'),
     questType: c.req.query('type'),
     creator: c.req.query('creator'),
+    winner: c.req.query('winner'),
     limit: c.req.query('limit') ? parseInt(c.req.query('limit')!) : undefined,
     offset: c.req.query('offset') ? parseInt(c.req.query('offset')!) : undefined,
   })

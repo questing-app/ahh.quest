@@ -3,19 +3,23 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
-import { QuestRow } from '@/components/quest-row'
-import { Notice, SectionHeader, groupedList } from '@/components/notice'
-import { SkeletonRows } from '@/components/skeleton'
+import { QuestRow, questList } from '@/components/quest-row'
+import { Notice, SectionHeader } from '@/components/notice'
+import { SkeletonCards } from '@/components/skeleton'
 import { EmptyState } from '@/components/empty-state'
 import { button } from '@/components/button'
-import { useFeed, type FeedFilter } from '@/lib/queries'
+import { useFeed, useMe, type FeedFilter } from '@/lib/queries'
 import { useSession } from '@/lib/session'
+import { useOnline } from '@/lib/network'
+import { timeAgo } from '@/lib/time'
 import { errorMessage } from '@/lib/api'
 
 const INTRO_KEY = 'quest:intro-dismissed'
+const DRAFT_KEY = 'quest.post.draft'
 
 export default function HomePage() {
   const { ready, authenticated, login } = useSession()
@@ -38,13 +42,15 @@ export default function HomePage() {
     }
   }
 
+  const signedOut = ready && !authenticated
+
   return (
     <div className={TAB_BAR_SPACE}>
       <NavBar
         title="Quests"
         large
         right={
-          ready && !authenticated ? (
+          signedOut ? (
             <button type="button" onClick={login} className="press -mr-2 h-11 px-2 text-[17px] text-moss">
               Sign in
             </button>
@@ -52,13 +58,15 @@ export default function HomePage() {
         }
       />
       <main>
-        {ready && !authenticated && !introHidden && <Intro onLookAround={lookAround} />}
+        {signedOut && !introHidden && <Intro onLookAround={lookAround} />}
+        {signedOut && introHidden && <IntroCard />}
         <Feed />
       </main>
     </div>
   )
 }
 
+/** First visit: the full welcome. */
 function Intro({ onLookAround }: { onLookAround: () => void }) {
   return (
     <section aria-labelledby="intro-heading" className="pb-2">
@@ -94,6 +102,36 @@ function Intro({ onLookAround }: { onLookAround: () => void }) {
   )
 }
 
+/** Signed out and browsing: a short reminder of what this is, above the board. */
+function IntroCard() {
+  return (
+    <section aria-labelledby="intro-card-heading" className="mx-4 mt-1 overflow-hidden rounded-[16px] bg-paper-raised">
+      <Image
+        src="/art/complete.png"
+        alt=""
+        width={390}
+        height={360}
+        sizes="100vw"
+        priority
+        className="block h-[104px] w-full object-cover object-[50%_38%]"
+      />
+      <div className="px-4 pb-4 pt-3">
+        <h2 id="intro-card-heading" className="font-display text-[20px] leading-tight">
+          Dare someone. Pay when it’s done.
+        </h2>
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <Link href="/welcome" className={`${button()} h-11 px-3 text-[16px]`}>
+            Get started
+          </Link>
+          <Link href="/welcome?step=how&next=/" className={`${button('outline')} h-11 px-3 text-[16px]`}>
+            How it works
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 const FILTERS: { id: FeedFilter; label: string; signedIn?: boolean }[] = [
   { id: 'all', label: 'All' },
   { id: 'mine', label: 'For you', signedIn: true },
@@ -119,23 +157,50 @@ function useDebounced(value: string, ms: number) {
 
 function Feed() {
   const { authenticated } = useSession()
+  const router = useRouter()
+  const online = useOnline()
+  const me = useMe()
   const [query, setQuery] = useState('')
+  const [focused, setFocused] = useState(false)
   const [filter, setFilter] = useState<FeedFilter>('all')
   const needle = useDebounced(query.trim(), 300)
-  const { data, error, isPending, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching } = useFeed({
-    q: needle,
-    filter,
-  })
+  const { data, error, isPending, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isRefetching, dataUpdatedAt } =
+    useFeed({ q: needle, filter })
+  const forMe = useFeed({ filter: 'mine', enabled: authenticated })
+  const forMeCount = authenticated ? (forMe.data?.pages.flat().length ?? 0) : 0
   const quests = data?.pages.flat() ?? []
   const searching = needle.length > 0
 
+  function cancelSearch() {
+    setQuery('')
+    setFocused(false)
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
+
+  /** Carries the search over as the start of a new quest. */
+  function postThisOne() {
+    try {
+      const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}')
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, description: needle.slice(0, 280) }))
+    } catch {
+      // Private mode: they start from a blank quest.
+    }
+    router.push('/post')
+  }
+
+  const heading = searching
+    ? isPending
+      ? 'Searching…'
+      : `${quests.length}${hasNextPage ? '+' : ''} ${quests.length === 1 && !hasNextPage ? 'result' : 'results'}`
+    : HEADINGS[filter]
+
   return (
     <section aria-labelledby="feed-heading">
-      <div className="px-4 pt-3">
+      <div className="flex items-center px-4 pt-3">
         <label htmlFor="feed-search" className="sr-only">
           Search quests
         </label>
-        <div className="flex h-9 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] pl-2 pr-1">
+        <div className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] pl-2 pr-1">
           <Search className="h-[17px] w-[17px] shrink-0 text-ink-soft" strokeWidth={2.25} aria-hidden />
           <input
             id="feed-search"
@@ -143,6 +208,8 @@ function Feed() {
             enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder="Search quests"
             autoComplete="off"
             className="h-full min-w-0 flex-1 bg-transparent text-[17px] placeholder:text-ink-soft/80 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
@@ -150,6 +217,7 @@ function Feed() {
           {query && (
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setQuery('')}
               aria-label="Clear search"
               className="press flex h-9 w-9 items-center justify-center"
@@ -158,6 +226,16 @@ function Feed() {
             </button>
           )}
         </div>
+        {(focused || query) && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={cancelSearch}
+            className="press -mr-2 h-11 shrink-0 px-3 text-[17px] text-moss"
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
       <div role="radiogroup" aria-label="Show" className="chrome flex gap-2 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
@@ -168,18 +246,22 @@ function Feed() {
             role="radio"
             aria-checked={filter === f.id}
             onClick={() => setFilter(f.id)}
-            className={`press h-8 shrink-0 rounded-full px-3.5 text-[15px] font-medium ${
-              filter === f.id ? 'bg-moss text-paper-raised' : 'bg-ink/[0.06] text-ink'
+            className={`press tabular h-8 shrink-0 rounded-full px-3.5 text-[15px] font-medium ${
+              filter === f.id ? 'bg-ink text-paper-raised' : 'bg-ink/[0.06] text-ink'
             }`}
           >
             {f.label}
+            {f.id === 'mine' && forMeCount > 0 && ` · ${forMeCount}`}
           </button>
         ))}
       </div>
 
-      <SectionHeader id="feed-heading">{searching ? `Results for “${needle}”` : HEADINGS[filter]}</SectionHeader>
+      <SectionHeader id="feed-heading">
+        {heading}
+        {!online && dataUpdatedAt > 0 && ` · as of ${timeAgo(Math.floor(dataUpdatedAt / 1000))}`}
+      </SectionHeader>
 
-      {isPending && <SkeletonRows label="Loading quests" />}
+      {isPending && <SkeletonCards label="Loading quests" />}
       {error && (
         <div className="px-4 text-center">
           <Notice tone="error">{errorMessage(error)}</Notice>
@@ -196,12 +278,15 @@ function Feed() {
 
       {!isPending && !error && quests.length === 0 && (
         searching ? (
-          <Notice>
-            No open quests match “{needle}”.{' '}
-            <button type="button" onClick={() => setQuery('')} className="font-semibold text-moss">
-              Clear search
+          <div className="px-8 pb-6 pt-8 text-center">
+            <h2 className="font-display text-[24px] leading-tight">No quests match</h2>
+            <p className="mx-auto mt-2 max-w-[20rem] text-[15px] leading-relaxed text-ink-soft">
+              Nobody has posted “{needle}” yet. You could be the one who does.
+            </p>
+            <button type="button" onClick={postThisOne} className={`${button()} mt-6 w-full`}>
+              Post this one
             </button>
-          </Notice>
+          </div>
         ) : filter === 'mine' ? (
           <Notice>Nobody has posted a quest just for you yet. When they do, it shows up here.</Notice>
         ) : (
@@ -218,9 +303,9 @@ function Feed() {
       )}
 
       {quests.length > 0 && (
-        <ul className={groupedList}>
+        <ul className={questList}>
           {quests.map((quest) => (
-            <QuestRow key={quest.id} quest={quest} />
+            <QuestRow key={quest.id} quest={quest} viewer={me.data?.pubkey} match={searching ? needle : undefined} />
           ))}
         </ul>
       )}

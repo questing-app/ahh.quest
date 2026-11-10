@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Lock, Scale, ShieldCheck } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { PROGRAM_ID } from '@quest/sdk'
 import { NameForm } from '@/components/name-form'
 import { PhotoPicker } from '@/components/photo-picker'
@@ -107,7 +107,7 @@ function Art({ src, alt, short }: { src: string; alt: string; short?: boolean })
 
 function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div className="mt-1 text-center">
+    <div className="mt-1">
       <p className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">{eyebrow}</p>
       <h1 className="mt-2 font-display text-[32px] leading-[1.05] text-moss">{title}</h1>
     </div>
@@ -159,9 +159,9 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
   }, [waiting, authenticated, onNext])
 
   const points = [
-    { icon: Lock, title: 'Locked when it’s posted', body: 'The reward sits in an on-chain vault, not with Quest and not with the poster.' },
-    { icon: ShieldCheck, title: 'No take-backs', body: 'Once someone takes the quest, the poster can’t pull the money.' },
-    { icon: Scale, title: 'Fair judging', body: 'An AI checks the video. If the poster doesn’t answer in time, it approves itself.' },
+    { title: 'Locked when it’s posted', body: 'The reward sits in an on-chain vault, not with Quest and not with the poster.' },
+    { title: 'No take-backs', body: 'Once someone takes the quest, the poster can’t pull the money.' },
+    { title: 'Fair judging', body: 'An AI checks the video. If the poster doesn’t answer in time, it approves itself.' },
   ]
 
   return (
@@ -169,12 +169,12 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
       <Art short src="/art/wallet.png" alt="A wizard points a knight on horseback toward a small chest on a mountain path" />
       <Heading eyebrow="Your money is safe" title="Rewards are locked up" />
       <ul className="mx-auto mt-4 w-full max-w-[22rem] space-y-3">
-        {points.map(({ icon: Icon, title, body }) => (
+        {points.map(({ title, body }) => (
           <li key={title} className="flex gap-3.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-moss-pale text-moss-deep">
-              <Icon className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-moss text-white">
+              <Check className="h-[14px] w-[14px]" strokeWidth={3} aria-hidden />
             </span>
-            <span className="pt-0.5">
+            <span>
               <span className="block text-[17px] font-semibold leading-snug">{title}</span>
               <span className="block text-[15px] leading-relaxed text-ink-soft">{body}</span>
             </span>
@@ -255,8 +255,8 @@ function PickName({ onDone }: { onDone: () => void }) {
           <p className="text-[15px] text-ink-soft">Setting up your account…</p>
         ) : (
           <>
-            <div className="mb-4 flex justify-center">
-              <PhotoPicker user={me} size={96} caption ring="ring-paper" />
+            <div className="mb-5">
+              <PhotoPicker user={me} size={72} caption inline ring="ring-paper" />
             </div>
             <NameForm user={me} onDone={onDone} submitLabel="Done" stacked />
           </>

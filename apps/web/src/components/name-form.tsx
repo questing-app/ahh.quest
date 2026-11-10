@@ -47,7 +47,7 @@ export function NameForm({
           if (valid) save.mutate()
         }}
       >
-        <label htmlFor="username" className="text-[13px] font-semibold uppercase tracking-wide text-ink-soft">
+        <label htmlFor="username" className="text-[14px] font-semibold">
           Name
         </label>
         <input
@@ -64,7 +64,9 @@ export function NameForm({
         <p role={save.error ? 'alert' : undefined} className={`mt-2 text-[13px] leading-relaxed ${save.error ? 'text-wax' : 'text-ink-soft'}`}>
           {save.error
             ? errorMessage(save.error)
-            : 'Shown on quests you post and videos you send. You can change it any time. 3 to 30 letters, numbers, dots or underscores.'}
+            : name && !valid
+              ? 'Use 3 to 30 letters, numbers, dots or underscores.'
+              : 'Shown on quests you post and videos you send. You can change it any time.'}
         </p>
         <button type="submit" disabled={!valid || save.isPending} className={`${button()} mt-6 w-full`}>
           {save.isPending ? 'Saving…' : submitLabel}

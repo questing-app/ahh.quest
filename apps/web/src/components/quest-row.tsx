@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
 import type { Quest } from '@/lib/types'
 import { displayName } from '@/lib/types'
 import { formatUnits, shortAddress, tokenForMint } from '@/lib/tokens'
-import { timeLeft } from '@/lib/time'
+import { deadlinePill, roughLeft, timeAgo } from '@/lib/time'
+import { Avatar } from './avatar'
 
 export function questAvailability(quest: Quest): string {
   switch (quest.status) {
@@ -24,30 +24,78 @@ export function questAvailability(quest: Quest): string {
   }
 }
 
-export function QuestRow({ quest, showCreator = true }: { quest: Quest; showCreator?: boolean }) {
+/** Spacing for a column of quest cards. */
+export const questList = 'mx-4 space-y-3'
+
+const pill = 'shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-none'
+
+/** Wraps the part of `text` that matches the search in a highlight. */
+function Marked({ text, match }: { text: string; match?: string }) {
+  const at = match ? text.toLowerCase().indexOf(match.toLowerCase()) : -1
+  if (!match || at < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="rounded-[3px] bg-[#F3E3C4] text-inherit">{text.slice(at, at + match.length)}</mark>
+      {text.slice(at + match.length)}
+    </>
+  )
+}
+
+export function QuestRow({
+  quest,
+  showCreator = true,
+  viewer,
+  match,
+}: {
+  quest: Quest
+  showCreator?: boolean
+  /** Signed-in wallet, so quests posted for them stand out. */
+  viewer?: string
+  /** Search text to highlight in the dare. */
+  match?: string
+}) {
   const token = tokenForMint(quest.rewardMint)
-  const meta = [
-    showCreator ? displayName(quest.creator) : null,
-    questAvailability(quest),
-    quest.status === 'active' && quest.deadline ? timeLeft(quest.deadline) : null,
-  ].filter(Boolean)
+  const open = quest.status === 'active'
+  const forYou = open && quest.questType === 'direct' && !!viewer && quest.targetPubkey === viewer
+  const time = deadlinePill(quest.deadline)
+  const left = quest.deadline ? roughLeft(quest.deadline) : null
 
   // The reward leads: it's what people scan the list for.
   return (
     <li>
       <Link
         href={`/q/${quest.id}`}
-        className="flex items-center gap-3 py-3.5 pl-4 pr-2 transition-colors active:bg-paper-sunk"
+        className={`press-scale block rounded-[16px] p-4 ${forYou ? 'bg-moss-pale ring-1 ring-inset ring-moss/25' : 'bg-paper-raised'}`}
       >
-        <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
           <p className="leading-none">
-            <span className="tabular font-display text-[22px] text-moss">{formatUnits(quest.rewardAmount, token.decimals)}</span>{' '}
+            <span className="tabular font-display text-[26px] text-moss">{formatUnits(quest.rewardAmount, token.decimals)}</span>{' '}
             <span className="text-[12px] font-semibold tracking-wide text-ink-soft">{token.symbol}</span>
           </p>
-          <p className="mt-1.5 line-clamp-2 text-[17px] leading-snug">{quest.description}</p>
-          <p className="mt-1 truncate text-[13px] text-ink-soft">{meta.join(' · ')}</p>
+          {forYou ? (
+            <span className={`${pill} bg-moss text-paper-raised`}>For you</span>
+          ) : open ? (
+            <span className={`${pill} ${time.soon ? 'bg-[#F3E3C4] text-[#6E4310]' : 'bg-ink/[0.06] text-ink-soft'}`}>{time.label}</span>
+          ) : (
+            <span className={`${pill} bg-ink/[0.06] text-ink-soft`}>{questAvailability(quest)}</span>
+          )}
         </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
+        <p className="mt-2.5 line-clamp-2 text-[17px] leading-snug">
+          <Marked text={quest.description} match={match} />
+        </p>
+        {showCreator ? (
+          <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-soft">
+            <Avatar person={quest.creator} size={22} />
+            <span className="min-w-0 truncate">
+              {forYou
+                ? `${displayName(quest.creator)} dared you · ${left ? `${left} left` : 'no time limit'}`
+                : `${displayName(quest.creator)} · posted ${timeAgo(quest.createdAt)}`}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-2 text-[13px] text-ink-soft">Posted {timeAgo(quest.createdAt)}</p>
+        )}
       </Link>
     </li>
   )
