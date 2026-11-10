@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import { TabBar } from '@/components/tab-bar'
 import { DesktopGate } from '@/components/desktop-gate'
+import { DESKTOP_KEY } from '@/lib/desktop'
 import { InstallSheet } from '@/components/install-sheet'
 import { Toaster } from '@/components/toast'
 import { PullToRefresh } from '@/components/pull-to-refresh'
@@ -45,20 +46,28 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
+const DESKTOP_MODE = `try{if(localStorage.getItem('${DESKTOP_KEY}')==='app')document.documentElement.dataset.desktop='app'}catch(e){}`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={display.variable}>
+    // The script below sets data-desktop before React hydrates.
+    <html lang="en" className={display.variable} suppressHydrationWarning>
       <body className="min-h-[100dvh] bg-paper text-ink antialiased">
+        {/* A computer that chose "Use it on desktop" goes straight to the app, with no flash of the landing page. */}
+        <script dangerouslySetInnerHTML={{ __html: DESKTOP_MODE }} />
         <DesktopGate />
-        <div className="app-root">
-          <Providers>
-            {children}
-            <TabBar />
-            <InstallSheet />
-            <Toaster />
-            <PullToRefresh />
-            <OfflineBanner />
-          </Providers>
+        {/* On a computer this is the phone-width column the app lives in; on a phone it does nothing. */}
+        <div id="app-frame" className="app-frame">
+          <div className="app-root">
+            <Providers>
+              {children}
+              <TabBar />
+              <InstallSheet />
+              <Toaster />
+              <PullToRefresh />
+              <OfflineBanner />
+            </Providers>
+          </div>
         </div>
       </body>
     </html>

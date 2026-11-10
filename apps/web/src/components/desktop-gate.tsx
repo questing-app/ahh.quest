@@ -1,12 +1,26 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { DESKTOP_KEY } from '@/lib/desktop'
+import { ArrowRight, Check, ChevronLeft, Compass, Inbox, Play, Plus, Search, UserRound } from 'lucide-react'
+
+
+function setDesktopApp(on: boolean) {
+  if (on) document.documentElement.dataset.desktop = 'app'
+  else delete document.documentElement.dataset.desktop
+  try {
+    if (on) localStorage.setItem(DESKTOP_KEY, 'app')
+    else localStorage.removeItem(DESKTOP_KEY)
+  } catch {
+    // Private mode: the choice lasts until the tab closes.
+  }
+}
 
 /**
- * Shown instead of the app on desktop (mouse + hover). CSS decides which one is
- * visible, so there is no flash on load; this only fills in the QR code.
+ * What a computer (mouse + hover) sees instead of the app: the pitch, a code to open
+ * it on a phone, and a way into the app in a phone-width column. CSS decides which
+ * of the two is visible, so there is no flash on load; this only fills in the QR code.
  */
 export function DesktopGate() {
   const [qr, setQr] = useState<string | null>(null)
@@ -25,39 +39,193 @@ export function DesktopGate() {
   }, [])
 
   return (
-    <div className="desktop-gate min-h-screen items-center justify-center bg-paper-sunk p-10">
-      <main className="flex min-h-[475px] w-full max-w-[760px] overflow-hidden rounded-[14px] border-2 border-ink bg-paper-raised">
-        <div className="flex flex-1 flex-col justify-center gap-4 p-12 max-[720px]:p-8">
-          <span className="font-display text-[22px] leading-none text-moss">Quest</span>
-          <h1 className="font-display text-[36px] leading-[1.1]">Quest lives on your phone</h1>
-          <p className="max-w-[300px] text-[15px] leading-relaxed text-ink-soft">
-            Scan the code with your camera to open it, then add it to your Home Screen.
+    <>
+      <div className="desktop-gate landing">
+        <header className="relative z-10 flex h-[64px] shrink-0 items-center px-8">
+          <span className="rounded-full bg-paper-raised/90 px-[18px] pb-[11px] pt-[9px] font-display text-[26px] leading-none text-moss">
+            Quest
+          </span>
+        </header>
+
+        <main className="relative z-10 mx-auto flex w-full max-w-[760px] shrink-0 flex-col items-center px-8 text-center">
+          <h1 className="font-display text-[clamp(40px,4.6vw,64px)] leading-[1.04]">
+            Dare someone.
+            <br />
+            Pay when it’s done.
+          </h1>
+          <p className="mt-4 max-w-[440px] text-[18px] leading-relaxed text-ink-soft">
+            Post a challenge with a reward locked up. Whoever films it and gets approved is paid.
           </p>
-          <div className="h-[140px] w-[140px] rounded-[12px] border border-rule bg-paper p-3">
-            {qr ? (
-              <div
-                role="img"
-                aria-label={`QR code for ${url}`}
-                className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: qr }}
-              />
-            ) : (
-              <div className="h-full w-full rounded-md bg-paper-sunk" />
-            )}
+
+          <div className="mt-7 flex items-center gap-4 rounded-[20px] bg-paper-raised p-3 pr-7 text-left shadow-[0_1px_0_rgba(38,38,31,0.06),0_12px_32px_-12px_rgba(38,38,31,0.35)]">
+            <div className="h-[88px] w-[88px] shrink-0 rounded-[12px] bg-paper p-2">
+              {qr ? (
+                <div
+                  role="img"
+                  aria-label={`QR code for ${url}`}
+                  className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: qr }}
+                />
+              ) : (
+                <div className="h-full w-full rounded-md bg-paper-sunk" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[17px] font-semibold leading-snug">Open Quest on your phone</p>
+              <p className="mt-0.5 text-[14px] leading-snug text-ink-soft">Point your camera at the code.</p>
+              {url && <p className="mt-1.5 truncate font-mono text-[12px] text-ink-soft">{url}</p>}
+            </div>
           </div>
-          {url && <p className="font-mono text-[13px] text-ink-soft">{url}</p>}
+
+          <button
+            type="button"
+            onClick={() => setDesktopApp(true)}
+            className="group mt-3 inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold text-moss-deep transition-colors hover:bg-paper-raised/80"
+          >
+            Use it on desktop
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
+          </button>
+        </main>
+
+        <div className="landing-stage" aria-hidden>
+          <div className="landing-tilt">
+            <div className="landing-phone">
+              <div className="landing-phone-shadow" />
+              {Array.from({ length: 9 }, (_, i) => (
+                <div key={i} className="landing-phone-edge" style={{ transform: `translateZ(${-(i + 1) * 2}px)` }} />
+              ))}
+              <div className="landing-phone-body">
+                <PhoneScreen />
+              </div>
+            </div>
+          </div>
+
+          <div className="landing-card landing-card-left">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-moss-pale text-moss-deep">
+              <Check className="h-[18px] w-[18px]" strokeWidth={2.5} />
+            </span>
+            <div className="min-w-0">
+              <p className="tabular truncate text-[16px] font-semibold leading-snug">Paid 51.25 QUEST</p>
+              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Juggle three eggs for 30 seconds</p>
+            </div>
+          </div>
+
+          <div className="landing-card landing-card-right">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-night text-paper-raised">
+              <Play className="h-[18px] w-[18px]" strokeWidth={2.5} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[16px] font-semibold leading-snug">Review Mara’s video</p>
+              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Approves itself in 22 h</p>
+            </div>
+          </div>
         </div>
-        <div className="relative w-[320px] shrink-0 border-l border-rule bg-paper max-[720px]:hidden">
-          <Image
-            src="/art/wallet.png"
-            alt="A wizard points a knight on horseback toward a small chest on a mountain path"
-            fill
-            sizes="320px"
-            priority
-            className="object-cover"
-          />
-        </div>
-      </main>
+      </div>
+
+      <button type="button" onClick={() => setDesktopApp(false)} className="desktop-back">
+        <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+        Home
+      </button>
+    </>
+  )
+}
+
+const SAMPLE = [
+  { reward: '500', pill: '6h left', soon: true, dare: 'Juggle three eggs for 30 seconds without dropping one.', who: 'Dev', ago: '2h ago' },
+  { reward: '120', pill: '3 days', soon: false, dare: 'Order a coffee entirely in song, start to finish.', who: 'Mara', ago: '5h ago' },
+  { reward: '75', pill: '5 days', soon: false, dare: 'Read tomorrow’s weather like a sports commentator.', who: 'Inés', ago: '1d ago' },
+  { reward: '300', pill: 'No limit', soon: false, dare: 'Parallel park in one move, filmed from the kerb.', who: 'Tobi', ago: '2d ago' },
+  { reward: '60', pill: '2 days', soon: false, dare: 'Teach your dog a new trick and show it twice.', who: 'June', ago: '3d ago' },
+]
+
+const TABS = [
+  { label: 'Quests', icon: Compass, active: true },
+  { label: 'Activity', icon: Inbox, active: false },
+  { label: 'Post', icon: Plus, active: false },
+  { label: 'You', icon: UserRound, active: false },
+]
+
+/** The Quests tab, drawn with the app's own styles and made-up quests. Not interactive. */
+function PhoneScreen() {
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[44px] bg-paper">
+      <div className="flex h-[54px] items-end justify-between px-9 pb-1.5 text-[16px] font-semibold">
+        <span className="tabular">9:41</span>
+        <span className="flex items-center gap-1.5">
+          <span className="flex items-end gap-[2px]">
+            {[5, 7, 9, 11].map((h) => (
+              <span key={h} className="w-[3px] rounded-[1px] bg-ink" style={{ height: h }} />
+            ))}
+          </span>
+          <span className="relative ml-1 h-[12px] w-[25px] rounded-[4px] border border-ink/50 p-[1.5px]">
+            <span className="block h-full w-[78%] rounded-[2px] bg-ink" />
+          </span>
+        </span>
+      </div>
+      <div className="absolute left-1/2 top-[12px] h-[32px] w-[112px] -translate-x-1/2 rounded-full bg-night" />
+
+      <h2 className="px-4 pb-2 pt-4 font-display text-[34px] leading-[1.1] text-moss">Quests</h2>
+
+      <div className="mx-4 flex h-9 items-center gap-1.5 rounded-[10px] bg-ink/[0.06] px-2 text-[17px] text-ink-soft/80">
+        <Search className="h-[18px] w-[18px]" strokeWidth={2.25} />
+        Search quests
+      </div>
+      <div className="mt-3 flex gap-2 px-4 text-[15px] font-medium">
+        <span className="flex h-8 items-center rounded-full bg-ink px-3.5 text-paper-raised">All</span>
+        <span className="flex h-8 items-center rounded-full bg-ink/[0.06] px-3.5">Ending soon</span>
+        <span className="flex h-8 items-center rounded-full bg-ink/[0.06] px-3.5">Biggest</span>
+      </div>
+
+      <h3 className="px-8 pb-1.5 pt-5 text-[13px] uppercase tracking-wide text-ink-soft">Open now</h3>
+      <ul className="mx-4 space-y-3">
+        {SAMPLE.map((q) => (
+          <li key={q.dare} className="rounded-[16px] bg-paper-raised p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="leading-none">
+                <span className="tabular font-display text-[26px] text-moss">{q.reward}</span>{' '}
+                <span className="text-[12px] font-semibold tracking-wide text-ink-soft">QUEST</span>
+              </p>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-none ${
+                  q.soon ? 'bg-[#F3E3C4] text-[#6E4310]' : 'bg-ink/[0.06] text-ink-soft'
+                }`}
+              >
+                {q.pill}
+              </span>
+            </div>
+            <p className="mt-2.5 text-[17px] leading-snug">{q.dare}</p>
+            <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-soft">
+              <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[10px] text-moss">
+                {q.who.charAt(0)}
+              </span>
+              {q.who} · posted {q.ago}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      <div className="absolute inset-x-0 bottom-0 border-t-[0.5px] border-ink/15 bg-paper-raised/90 pb-5 backdrop-blur-xl">
+        <ul className="flex h-[49px]">
+          {TABS.map(({ label, icon: Icon, active }) => (
+            <li
+              key={label}
+              className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                active ? 'text-moss' : 'text-ink-soft/80'
+              }`}
+            >
+              {label === 'Post' ? (
+                <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-ink-soft/80 text-paper-raised">
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={2.75} />
+                </span>
+              ) : (
+                <Icon className="h-[26px] w-[26px]" strokeWidth={active ? 2.25 : 1.75} />
+              )}
+              {label}
+            </li>
+          ))}
+        </ul>
+        <div className="absolute bottom-2 left-1/2 h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-ink" />
+      </div>
     </div>
   )
 }

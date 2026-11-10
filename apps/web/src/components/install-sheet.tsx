@@ -72,6 +72,8 @@ export function InstallSheet() {
   useEffect(() => {
     if (standalone || QUIET.some((re) => re.test(pathname))) return
     if (Date.now() - readDismissed() < SNOOZE_MS) return
+    // On a computer the landing page already says to open it on a phone.
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
     const t = setTimeout(() => setOpen(true), 1500)
     return () => clearTimeout(t)
     // Only on the first screen they land on.

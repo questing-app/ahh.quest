@@ -85,7 +85,7 @@ export function ConfirmButton({
               </div>
             )}
           </AnimatePresence>,
-          document.body,
+          document.getElementById('app-frame') ?? document.body,
         )}
     </>
   )

@@ -54,6 +54,6 @@ export function Sheet({
         </div>
       )}
     </AnimatePresence>,
-    document.body,
+    document.getElementById('app-frame') ?? document.body,
   )
 }
