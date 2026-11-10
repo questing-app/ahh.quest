@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Lock, Scale, ShieldCheck } from 'lucide-react'
 import { PROGRAM_ID } from '@quest/sdk'
 import { NameForm } from '@/components/name-form'
+import { PhotoPicker } from '@/components/photo-picker'
 import { Sheet } from '@/components/sheet'
 import { button } from '@/components/button'
 import { useSession } from '@/lib/session'
@@ -229,7 +230,7 @@ function MoneyIsSafe({ onNext }: { onNext: () => void }) {
   )
 }
 
-/** F5: one field. Skipping leaves the short wallet address as the name. */
+/** F5: a photo and a name, both optional. Skipping leaves the short wallet address as the name. */
 function PickName({ onDone }: { onDone: () => void }) {
   const { ready, authenticated, login } = useSession()
   const { data: me } = useMe()
@@ -253,7 +254,12 @@ function PickName({ onDone }: { onDone: () => void }) {
         ) : !me ? (
           <p className="text-[15px] text-ink-soft">Setting up your account…</p>
         ) : (
-          <NameForm user={me} onDone={onDone} submitLabel="Done" stacked />
+          <>
+            <div className="mb-4 flex justify-center">
+              <PhotoPicker user={me} size={96} caption ring="ring-paper" />
+            </div>
+            <NameForm user={me} onDone={onDone} submitLabel="Done" stacked />
+          </>
         )}
       </div>
     </>

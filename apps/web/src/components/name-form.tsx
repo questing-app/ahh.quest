@@ -33,7 +33,7 @@ export function NameForm({
   const save = useMutation({
     mutationFn: () => api<User>('/api/users/me', { method: 'PATCH', json: { username: name } }),
     onSuccess: (updated) => {
-      queryClient.setQueryData(['me'], updated)
+      queryClient.setQueriesData({ queryKey: ['me'] }, updated)
       toast('Name saved')
       onDone?.()
     },

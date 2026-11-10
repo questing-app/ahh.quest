@@ -41,18 +41,19 @@ function entriesFrom(feed: MyFeed): Entry[] {
         detail: q.description,
         units: q.rewardAmount,
         mint: q.rewardMint,
-        // The API has no settle time; the deadline (or post time) is the closest we have.
-        at: q.deadline ?? q.createdAt,
+        // Quests closed before settle times were recorded fall back to the deadline.
+        at: q.closedAt ?? q.deadline ?? q.createdAt,
       })
     }
   }
   for (const c of feed.claims) {
     const mint = c.quest?.rewardMint ?? TOKENS[0].mint
     const detail = c.quest?.description ?? 'Quest'
+    const lost = c.status === 'rejected' || c.status === 'expired' || c.status === 'abandoned'
     out.push({
       key: `stake-${c.id}`,
       questId: c.questId,
-      label: 'Deposit to take a quest',
+      label: lost ? 'Deposit lost on a quest' : 'Deposit to take a quest',
       detail,
       units: -c.stakeAmount,
       mint,
@@ -66,9 +67,22 @@ function entriesFrom(feed: MyFeed): Entry[] {
         detail,
         units: c.quest.rewardAmount - feeFor(c.quest.rewardAmount) + c.stakeAmount,
         mint,
-        at: c.reviewDeadline ?? c.proofDeadline,
+        at: c.settledAt ?? c.reviewDeadline ?? c.proofDeadline,
       })
     }
+  }
+  const mine = new Map(feed.quests.map((q) => [q.id, q]))
+  for (const k of feed.kept ?? []) {
+    const quest = mine.get(k.questId)
+    out.push({
+      key: `kept-${k.id}`,
+      questId: k.questId,
+      label: 'Kept a deposit',
+      detail: quest?.description ?? 'Quest',
+      units: k.stakeAmount,
+      mint: quest?.rewardMint ?? TOKENS[0].mint,
+      at: k.settledAt ?? k.claimedAt,
+    })
   }
   return out.sort((a, b) => b.at - a.at)
 }

@@ -25,6 +25,14 @@ export class StorageService {
     return `${this.publicUrl}/${key}`
   }
 
+  async uploadAvatar(userId: string, fileId: string, body: ArrayBuffer, contentType: string): Promise<string> {
+    const key = `avatars/${userId}/${fileId}`
+    await this.r2.put(key, body, {
+      httpMetadata: { contentType },
+    })
+    return `${this.publicUrl}/${key}`
+  }
+
   async getFrames(claimId: string): Promise<{ base64: string; mimeType: string }[]> {
     const frames: { base64: string; mimeType: string }[] = []
     const list = await this.r2.list({ prefix: `frames/${claimId}/` })

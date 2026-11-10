@@ -123,7 +123,7 @@ claimRoutes.post('/:claimId/approve', authMiddleware, async (c) => {
   const { db, claim, quest } = await loadForReview(c, pathParam(c, 'claimId'), auth.userId)
 
   const txSig = await new OracleService(c.env, db).approve(quest, claim)
-  await recordApproved(db, quest, claim, 'creator', txSig)
+  await recordApproved(db, c.env, quest, claim, 'creator', txSig)
 
   return c.json({ success: true, txSignature: txSig })
 })
@@ -137,7 +137,7 @@ claimRoutes.post('/:claimId/reject', authMiddleware, async (c) => {
   const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 280) || null : null
 
   const txSig = await new OracleService(c.env, db).reject(quest, claim, false)
-  await recordRejected(db, quest, claim, 'creator', txSig, false, reason)
+  await recordRejected(db, c.env, quest, claim, 'creator', txSig, false, reason)
 
   return c.json({ success: true, txSignature: txSig })
 })
@@ -161,6 +161,6 @@ claimRoutes.delete('/:claimId', authMiddleware, async (c) => {
     throw new BadRequest('Claim is not abandoned on-chain')
   }
 
-  await recordReleased(db, quest, claim, 'abandoned')
+  await recordReleased(db, c.env, quest, claim, 'abandoned')
   return c.body(null, 204)
 })

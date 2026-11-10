@@ -36,6 +36,14 @@ export interface Env {
   ENVIRONMENT: string
   /** Comma-separated origins allowed by CORS. */
   ALLOWED_ORIGINS?: string
+
+  // Web push. Notifications are skipped when these are unset.
+  VAPID_PUBLIC_KEY?: string
+  VAPID_PRIVATE_KEY?: string
+  /** mailto: or https: contact the push services can reach. */
+  VAPID_SUBJECT?: string
+  /** Where notification links point, e.g. https://quest.example */
+  WEB_URL?: string
 }
 
 export interface AuthContext {

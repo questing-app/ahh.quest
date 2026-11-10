@@ -13,7 +13,7 @@ export async function getUserByPubkey(db: Database, pubkey: string) {
 export async function updateUser(
   db: Database,
   id: string,
-  data: { username?: string; avatarUrl?: string },
+  data: { username?: string; avatarUrl?: string | null },
 ) {
   await db.update(users).set(data).where(eq(users.id, id))
   return db.select().from(users).where(eq(users.id, id)).get()

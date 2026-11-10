@@ -11,6 +11,14 @@ export interface Person {
   avatarUrl: string | null
 }
 
+/** The poster on a quest, with how their past quests ended. */
+export interface Creator extends Person {
+  /** Quests of theirs that paid the taker. */
+  paid?: number
+  /** Quests of theirs that ended in a rejected video. */
+  rejected?: number
+}
+
 export interface User extends Person {
   questsCompleted: number
   questsPosted: number
@@ -24,7 +32,7 @@ export interface Quest {
   txSignature: string | null
   escrowPda: string
   creatorId: string
-  creator: Person | null
+  creator: Creator | null
   description: string
   questType: 'direct' | 'open'
   status: QuestStatus
@@ -34,6 +42,8 @@ export interface Quest {
   maxClaimers: number
   currentClaimers: number
   deadline: number | null
+  /** When it paid out, was rejected or was cancelled. */
+  closedAt: number | null
   createdAt: number
 }
 
@@ -45,6 +55,8 @@ export interface Claim {
   stakeAmount: number
   proofDeadline: number
   reviewDeadline: number | null
+  /** When the attempt ended, whichever way it went. */
+  settledAt: number | null
   claimedAt: number
 }
 
@@ -78,10 +90,21 @@ export interface IncomingClaim extends Claim {
   checked: boolean
 }
 
+/** A deposit that came to me because an attempt on my quest fell through. */
+export interface KeptDeposit {
+  id: string
+  questId: string
+  status: ClaimStatus
+  stakeAmount: number
+  settledAt: number | null
+  claimedAt: number
+}
+
 export interface MyFeed {
   quests: Quest[]
   claims: MyClaim[]
   incoming: IncomingClaim[]
+  kept: KeptDeposit[]
 }
 
 /** New accounts get "<first 8 of pubkey>..." until they pick a name. */

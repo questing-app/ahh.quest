@@ -38,6 +38,8 @@ export const quests = sqliteTable('quests', {
   questPda: text('quest_pda').notNull(),
   txSignature: text('tx_signature'),
   createdAt: integer('created_at').notNull(),
+  /** When the quest stopped being open: paid, rejected or cancelled. */
+  closedAt: integer('closed_at'),
 }, (table) => ({
   statusIdx: index('quests_status_idx').on(table.status),
   creatorIdx: index('quests_creator_idx').on(table.creatorId),
@@ -57,6 +59,8 @@ export const claims = sqliteTable('claims', {
   claimPda: text('claim_pda').notNull(),
   txSignature: text('tx_signature'),
   claimedAt: integer('claimed_at').notNull(),
+  /** When the attempt ended, whichever way it went. */
+  settledAt: integer('settled_at'),
 }, (table) => ({
   questIdx: index('claims_quest_idx').on(table.questId),
   claimerIdx: index('claims_claimer_idx').on(table.claimerId),
@@ -103,4 +107,16 @@ export const verificationJobs = sqliteTable('verification_jobs', {
 }, (table) => ({
   proofIdx: index('vjobs_proof_idx').on(table.proofId),
   statusIdx: index('vjobs_status_idx').on(table.status),
+}))
+
+// ── Push subscriptions ─────────────────────────
+
+export const pushSubscriptions = sqliteTable('push_subscriptions', {
+  endpoint: text('endpoint').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (table) => ({
+  userIdx: index('push_user_idx').on(table.userId),
 }))

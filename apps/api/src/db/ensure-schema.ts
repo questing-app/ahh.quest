@@ -5,6 +5,19 @@ import type { Env } from '../types'
 // it checks the live table first, so restarts are no-ops.
 const COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: 'proofs', column: 'reject_reason', ddl: 'ALTER TABLE proofs ADD COLUMN reject_reason text' },
+  { table: 'claims', column: 'settled_at', ddl: 'ALTER TABLE claims ADD COLUMN settled_at integer' },
+  { table: 'quests', column: 'closed_at', ddl: 'ALTER TABLE quests ADD COLUMN closed_at integer' },
+]
+
+const TABLES = [
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint text PRIMARY KEY NOT NULL,
+    user_id text NOT NULL REFERENCES users(id),
+    p256dh text NOT NULL,
+    auth text NOT NULL,
+    created_at integer NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS push_user_idx ON push_subscriptions (user_id)',
 ]
 
 export async function ensureSchema(env: Env) {
@@ -16,4 +29,5 @@ export async function ensureSchema(env: Env) {
       console.log(`schema: added ${table}.${column}`)
     }
   }
+  for (const ddl of TABLES) await db.execute(ddl)
 }

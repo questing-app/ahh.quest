@@ -56,6 +56,7 @@ export async function createQuest(db: Database, env: Env, input: CreateQuestInpu
     questPda: questPda(input.onchainId).toBase58(),
     txSignature: input.txSignature,
     createdAt: account.createdAt.toNumber(),
+    closedAt: null,
   }
 
   await db.insert(quests).values(quest)
@@ -123,6 +124,7 @@ export function formatQuest(quest: typeof quests.$inferSelect) {
     escrowPda: quest.escrowPda,
     txSignature: quest.txSignature,
     createdAt: quest.createdAt,
+    closedAt: quest.closedAt,
   }
 }
 
@@ -140,7 +142,22 @@ export async function formatQuestsWithCreators(db: Database, rows: QuestRow[]) {
         avatarUrl: users.avatarUrl,
       }).from(users).where(inArray(users.id, ids)).all()
     : []
-  const byId = new Map(creators.map((u) => [u.id, u]))
+  // How the poster's judged quests ended, so takers can see whether they pay.
+  const outcomes = ids.length
+    ? await db.select({ creatorId: quests.creatorId, status: quests.status, count: sql<number>`count(*)` })
+        .from(quests)
+        .where(and(inArray(quests.creatorId, ids), inArray(quests.status, ['completed', 'failed'])))
+        .groupBy(quests.creatorId, quests.status)
+        .all()
+    : []
+  const tally = new Map<string, { paid: number; rejected: number }>()
+  for (const row of outcomes) {
+    const t = tally.get(row.creatorId) ?? { paid: 0, rejected: 0 }
+    if (row.status === 'completed') t.paid = Number(row.count)
+    else t.rejected = Number(row.count)
+    tally.set(row.creatorId, t)
+  }
+  const byId = new Map(creators.map((u) => [u.id, { ...u, ...(tally.get(u.id) ?? { paid: 0, rejected: 0 }) }]))
 
   return rows.map((q) => ({
     ...formatQuest(q),

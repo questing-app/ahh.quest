@@ -1,26 +1,30 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { ChevronRight, Inbox, SquarePlus, Wallet, CircleHelp } from 'lucide-react'
+import { Bell, ChevronRight, Inbox, SquarePlus, Wallet, CircleHelp } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { SkeletonRows } from '@/components/skeleton'
 import { useTokenBalance } from '@/components/token-balance'
 import { TOKENS, formatUnits } from '@/lib/tokens'
 import { openInstallSheet, useStandalone } from '@/components/install-sheet'
 import { NavBar } from '@/components/nav-bar'
 import { TAB_BAR_SPACE } from '@/components/tab-bar'
-import { Avatar } from '@/components/avatar'
+import { PhotoPicker } from '@/components/photo-picker'
+import { toast } from '@/components/toast'
 import { Notice, groupedList } from '@/components/notice'
 import { NameForm } from '@/components/name-form'
 import { button } from '@/components/button'
 import { useMe } from '@/lib/queries'
-import { useSession } from '@/lib/session'
+import { useApi, useSession } from '@/lib/session'
+import { detachPush, disablePush, enablePush, pushState, type PushState } from '@/lib/push'
 import { displayName } from '@/lib/types'
 import { errorMessage } from '@/lib/api'
 
 export default function ProfilePage() {
   const { ready, authenticated, login, logout } = useSession()
+  const api = useApi()
   const me = useMe()
   const [editing, setEditing] = useState(false)
   const standalone = useStandalone()
@@ -61,7 +65,7 @@ export default function ProfilePage() {
         {user && (
           <>
             <section className="mx-4 flex flex-col items-center rounded-[16px] bg-paper-raised px-5 pb-5 pt-6 text-center">
-              <Avatar person={user} size={84} />
+              <PhotoPicker user={user} size={84} removable={editing} />
               {editing ? (
                 <div className="mt-4 w-full text-left">
                   <NameForm user={user} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} />
@@ -101,6 +105,7 @@ export default function ProfilePage() {
                 icon={<CircleHelp className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />}
                 label="How it works"
               />
+              <NotificationsRow />
               {!standalone && <InstallRow />}
             </ul>
           </>
@@ -111,7 +116,11 @@ export default function ProfilePage() {
             <li>
               <button
                 type="button"
-                onClick={logout}
+                onClick={async () => {
+                  // Otherwise this phone keeps getting the old account's notifications.
+                  await detachPush(api).catch(() => {})
+                  logout()
+                }}
                 className="min-h-[44px] w-full px-4 py-2.5 text-center text-[17px] text-wax transition-colors active:bg-paper-sunk"
               >
                 Sign out
@@ -159,6 +168,83 @@ function NavRow({
         {detail && <span className="tabular shrink-0 text-ink-soft">{detail}</span>}
         <ChevronRight className="h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
       </Link>
+    </li>
+  )
+}
+
+/** Hidden when the server has no push keys or the browser can't do it at all. */
+function NotificationsRow() {
+  const api = useApi()
+  const key = useQuery({
+    queryKey: ['push-key'],
+    queryFn: () => api<{ publicKey: string | null }>('/api/push/key'),
+    staleTime: Infinity,
+  })
+  const [state, setState] = useState<PushState | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    pushState().then(setState, () => setState('unsupported'))
+  }, [])
+
+  const publicKey = key.data?.publicKey
+  if (!publicKey || !state || state === 'unsupported') return null
+
+  const on = state === 'on'
+  const sub =
+    state === 'on'
+      ? 'On for this phone'
+      : state === 'blocked'
+        ? 'Blocked. Allow them for Quest in your phone’s settings.'
+        : state === 'needs-install'
+          ? 'Add Quest to your Home Screen first'
+          : 'Know when you’re paid or a video needs your call'
+
+  async function toggle() {
+    if (state === 'needs-install') return openInstallSheet()
+    if (state === 'blocked' || busy) return
+    setBusy(true)
+    try {
+      if (on) await disablePush(api)
+      else await enablePush(api, publicKey!)
+    } catch (err) {
+      toast(errorMessage(err))
+    }
+    setState(await pushState().catch(() => 'unsupported' as const))
+    setBusy(false)
+  }
+
+  const toggles = state === 'on' || state === 'off'
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={busy || state === 'blocked'}
+        {...(toggles ? { role: 'switch', 'aria-checked': on } : {})}
+        className="flex min-h-[44px] w-full items-center gap-3 py-2.5 pl-3 pr-4 text-left text-[17px] transition-colors active:bg-paper-sunk"
+      >
+        <RowIcon>
+          <Bell className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
+        </RowIcon>
+        <span className="min-w-0 flex-1">
+          <span className="block">Notifications</span>
+          <span className="block text-[13px] text-ink-soft">{sub}</span>
+        </span>
+        {toggles ? (
+          <span
+            aria-hidden
+            className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-moss' : 'bg-ink/20'} ${busy ? 'opacity-60' : ''}`}
+          >
+            <span
+              className={`absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? 'translate-x-5' : ''}`}
+            />
+          </span>
+        ) : (
+          state === 'needs-install' && <ChevronRight className="-mr-2 h-5 w-5 shrink-0 text-ink/25" strokeWidth={2.5} aria-hidden />
+        )}
+      </button>
     </li>
   )
 }

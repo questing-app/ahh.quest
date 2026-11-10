@@ -15,6 +15,26 @@ export interface RequestOptions {
   headers?: Record<string, string>
 }
 
+// Whether Quest's own server is answering. The banner reads this so a dead
+// server looks different from a dead connection.
+let serverDown = false
+const serverListeners = new Set<() => void>()
+
+function setServerDown(next: boolean) {
+  if (serverDown === next) return
+  serverDown = next
+  serverListeners.forEach((listener) => listener())
+}
+
+export const isServerDown = () => serverDown
+
+export function onServerChange(listener: () => void) {
+  serverListeners.add(listener)
+  return () => {
+    serverListeners.delete(listener)
+  }
+}
+
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { ...opts.headers }
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`
@@ -25,11 +45,20 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
     body = JSON.stringify(opts.json)
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    method: opts.method ?? (body ? 'POST' : 'GET'),
-    headers,
-    body,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: opts.method ?? (body ? 'POST' : 'GET'),
+      headers,
+      body,
+    })
+  } catch (err) {
+    // Online but no answer at all: the server is the problem, not the phone.
+    if (typeof navigator !== 'undefined' && navigator.onLine) setServerDown(true)
+    throw err
+  }
+  // 502–504 come from the host when the app behind it is down or restarting.
+  setServerDown(res.status >= 502 && res.status <= 504)
 
   if (res.status === 204) return undefined as T
 

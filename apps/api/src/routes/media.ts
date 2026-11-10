@@ -58,11 +58,11 @@ mediaRoutes.post('/upload-frame', authMiddleware, async (c) => {
   return c.json({ key })
 })
 
-// GET /media/videos/... and /media/thumbnails/...
+// GET /media/videos/..., /media/thumbnails/... and /media/avatars/...
 // Serves public media straight from R2. Frames stay private to the verifier.
 export const publicMediaRoutes = new Hono<{ Bindings: Env }>()
 
-publicMediaRoutes.get('/:kind{videos|thumbnails}/*', async (c) => {
+publicMediaRoutes.get('/:kind{videos|thumbnails|avatars}/*', async (c) => {
   const key = c.req.path.replace(/^\/media\//, '')
   const range = c.req.header('range')?.match(/bytes=(\d+)-(\d*)/)
   const object = await c.env.R2.get(key, range ? {
@@ -75,6 +75,7 @@ publicMediaRoutes.get('/:kind{videos|thumbnails}/*', async (c) => {
   const headers = new Headers()
   object.writeHttpMetadata(headers)
   headers.set('accept-ranges', 'bytes')
+  headers.set('x-content-type-options', 'nosniff')
   headers.set('cache-control', 'public, max-age=31536000, immutable')
   if (range && 'range' in object && object.range && 'offset' in object.range) {
     const start = object.range.offset ?? 0

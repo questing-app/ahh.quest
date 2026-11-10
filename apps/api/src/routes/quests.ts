@@ -138,7 +138,9 @@ questRoutes.delete('/:questId', authMiddleware, async (c) => {
     throw new BadRequest('Quest is not cancelled on-chain')
   }
 
-  await db.update(quests).set({ status: 'cancelled' }).where(eq(quests.id, quest.id))
+  await db.update(quests)
+    .set({ status: 'cancelled', closedAt: Math.floor(Date.now() / 1000) })
+    .where(eq(quests.id, quest.id))
   return c.body(null, 204)
 })
 

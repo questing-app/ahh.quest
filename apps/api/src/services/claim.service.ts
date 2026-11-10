@@ -6,6 +6,7 @@ import type { Database } from '../db/client'
 import { getProgram } from '../lib/solana'
 import { BadRequest } from '../lib/errors'
 import type { Env } from '../types'
+import { excerpt, notify, shownName } from './push.service'
 
 const MAX_ACTIVE_CLAIMS = 5
 
@@ -71,6 +72,7 @@ export async function recordClaim(
     claimPda: claimPda(questPda(quest.onchainId), claimerPubkey).toBase58(),
     txSignature,
     claimedAt: account.claimedAt.toNumber(),
+    settledAt: null,
   }
 
   await db.insert(claims).values(claim)
@@ -82,6 +84,13 @@ export async function recordClaim(
   await db.update(users)
     .set({ activeClaims: sql`${users.activeClaims} + 1` })
     .where(eq(users.id, claimerId))
+
+  const claimer = await db.select({ username: users.username }).from(users).where(eq(users.id, claimerId)).get()
+  notify(env, db, quest.creatorId, {
+    title: 'Someone took your quest',
+    body: `${shownName(claimer?.username)} has 24 hours to film “${excerpt(quest.description)}”.`,
+    url: `/q/${quest.id}`,
+  })
 
   return claim
 }
@@ -96,5 +105,6 @@ export function formatClaim(claim: typeof claims.$inferSelect) {
     proofDeadline: claim.proofDeadline,
     reviewDeadline: claim.reviewDeadline,
     claimedAt: claim.claimedAt,
+    settledAt: claim.settledAt,
   }
 }

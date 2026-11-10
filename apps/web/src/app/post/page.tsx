@@ -14,6 +14,7 @@ import { useApi, useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
 import { CLUSTER, program, useSendTransaction, useWallet } from '@/lib/chain'
 import { TokenBalance, useTokenBalance } from '@/components/token-balance'
+import { useOnline } from '@/lib/network'
 import type { Quest } from '@/lib/types'
 import { toast } from '@/components/toast'
 import { MIN_REWARD_UNITS, TOKENS, feeFor, formatUnits, shortAddress, toUnits } from '@/lib/tokens'
@@ -98,6 +99,7 @@ export default function PostQuestPage() {
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
   const balance = useTokenBalance()
+  const online = useOnline()
 
   const token = TOKENS[0]
   const units = toUnits(amount, token.decimals)
@@ -393,10 +395,17 @@ export default function PostQuestPage() {
 
       {/* Primary action sits just above the tab bar, where the thumb is. */}
       <div className="chrome fixed inset-x-0 bottom-[calc(49px+env(safe-area-inset-bottom))] z-30 bg-gradient-to-t from-paper via-paper to-paper/0 px-4 pb-3 pt-6">
-        <button type="submit" form="post-form" disabled={post.isPending} className={`${button()} w-full`}>
+        <button
+          type="submit"
+          form="post-form"
+          disabled={post.isPending || (!online && step === STEPS.length - 1)}
+          className={`${button()} w-full`}
+        >
           {step < STEPS.length - 1
             ? 'Continue'
-            : phase === 'checking'
+            : !online
+              ? 'You’re offline'
+              : phase === 'checking'
               ? 'Checking your quest…'
               : phase === 'funding'
                 ? 'Adding test QUEST…'

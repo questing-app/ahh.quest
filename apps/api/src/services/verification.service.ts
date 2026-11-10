@@ -6,6 +6,7 @@ import { OracleService } from './oracle.service'
 import { recordApproved, recordRejected } from './settlement.service'
 import { transcribeAudio, analyzeFrames, type AIVerificationResult } from '../lib/openai'
 import type { Env } from '../types'
+import { excerpt, notify } from './push.service'
 
 export async function processVerificationJob(env: Env, proofId: string): Promise<void> {
   const db = createDbClient(env)
@@ -93,10 +94,16 @@ async function applyDecision(
   // A failed oracle transaction throws, so the queue retries the job.
   if (aiResult.confidence >= 80 && !safetyFlagged) {
     const txSig = await oracle.approve(quest, claim)
-    await recordApproved(db, quest, claim, 'ai', txSig)
+    await recordApproved(db, env, quest, claim, 'ai', txSig)
   } else if (aiResult.confidence <= 20 || safetyFlagged) {
     const txSig = await oracle.reject(quest, claim, safetyFlagged)
-    await recordRejected(db, quest, claim, 'ai', txSig, safetyFlagged)
+    await recordRejected(db, env, quest, claim, 'ai', txSig, safetyFlagged)
+  } else {
+    notify(env, db, quest.creatorId, {
+      title: 'A video needs your call',
+      body: `Watch the attempt at “${excerpt(quest.description)}”. It approves itself in 24 hours.`,
+      url: `/q/${quest.id}/review`,
+    })
   }
   // Anything in between waits for the creator. If they don't decide before
   // review_deadline, the crank auto-approves.

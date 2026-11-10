@@ -21,7 +21,7 @@ export async function runCrank(env: Env): Promise<void> {
     if (!quest) continue
     try {
       await oracle.expire(quest, claim)
-      await recordReleased(db, quest, claim, 'expired')
+      await recordReleased(db, env, quest, claim, 'expired')
     } catch (err) {
       console.error(`expire_claim failed for ${claim.id}:`, err)
     }
@@ -40,7 +40,7 @@ export async function runCrank(env: Env): Promise<void> {
     if (!quest) continue
     try {
       const txSig = await oracle.approve(quest, claim, true)
-      await recordApproved(db, quest, claim, 'timeout', txSig)
+      await recordApproved(db, env, quest, claim, 'timeout', txSig)
     } catch (err) {
       console.error(`auto_approve failed for ${claim.id}:`, err)
     }

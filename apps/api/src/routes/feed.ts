@@ -87,6 +87,19 @@ feedRoutes.get('/mine', authMiddleware, async (c) => {
       .from(proofs).where(inArray(proofs.claimId, incomingRows.map((r) => r.id))).all()
     : []
   const claimerById = new Map(claimerRows.map((u) => [u.id, u]))
+
+  // Deposits that came to me because an attempt on my quest fell through.
+  const kept = myQuests.length
+    ? await db.select({
+        id: claims.id, questId: claims.questId, status: claims.status,
+        stakeAmount: claims.stakeAmount, settledAt: claims.settledAt, claimedAt: claims.claimedAt,
+      }).from(claims)
+      .where(and(
+        inArray(claims.questId, myQuests.map((q) => q.id)),
+        inArray(claims.status, ['rejected', 'expired', 'abandoned']),
+      ))
+      .all()
+    : []
   const checked = new Set(proofRows.filter((p) => p.aiDecision !== null).map((p) => p.claimId))
 
   return c.json({
@@ -95,6 +108,7 @@ feedRoutes.get('/mine', authMiddleware, async (c) => {
       claimer: claimerById.get(cl.claimerId) ?? null,
       checked: checked.has(cl.id),
     })),
+    kept,
     quests: await formatQuestsWithCreators(db, myQuests),
     claims: myClaims.map((cl) => ({ ...formatClaim(cl), quest: questById.get(cl.questId) ?? null })),
   })

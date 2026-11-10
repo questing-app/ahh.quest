@@ -26,7 +26,8 @@ import { displayName, type Quest, type QuestClaim, type User } from '@/lib/types
 import { feeFor, formatUnits, shortAddress, stakeFor, tokenForMint } from '@/lib/tokens'
 import { formatDate, remaining, timeAgo } from '@/lib/time'
 import { ApiError, errorMessage } from '@/lib/api'
-import { explorerAddress, program, useSendTransaction, useWallet } from '@/lib/chain'
+import { CLUSTER, explorerAddress, program, useSendTransaction, useWallet } from '@/lib/chain'
+import { useOnline } from '@/lib/network'
 import { shareLink } from '@/lib/share'
 import { abandonClaimIx, cancelQuestIx, claimQuestIx } from '@quest/sdk'
 
@@ -192,6 +193,8 @@ function QuestState({ quest, claims, me }: { quest: Quest; claims: QuestClaim[];
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
   const [takeOpen, setTakeOpen] = useState(false)
+  const balance = useTokenBalance()
+  const online = useOnline()
 
   const token = tokenForMint(quest.rewardMint)
   const amount = (units: number) => `${formatUnits(units, token.decimals)} ${token.symbol}`
@@ -207,11 +210,20 @@ function QuestState({ quest, claims, me }: { quest: Quest; claims: QuestClaim[];
   }
 
   // Each action is signed on-chain first; the API then mirrors what landed.
-  const [claimStep, setClaimStep] = useState<'checking' | 'signing'>('checking')
+  const [claimStep, setClaimStep] = useState<'checking' | 'funding' | 'signing'>('checking')
   const claim = useMutation({
     mutationFn: async () => {
       setClaimStep('checking')
       await api(`/api/quests/${quest.id}/claim/check`, { method: 'POST' })
+
+      // Testing on devnet: mint whatever test QUEST the deposit is short by.
+      const held = balance.data ?? 0
+      if (CLUSTER === 'devnet' && stake > held) {
+        setClaimStep('funding')
+        await api('/api/dev/faucet', { json: { amount: stake - held } })
+        await queryClient.invalidateQueries({ queryKey: ['balance'] })
+      }
+
       setClaimStep('signing')
       const ix = await claimQuestIx(program, { ...onChain, claimer: address!, stakeAmount: stake })
       const txSignature = await sendTransaction([ix])
@@ -394,8 +406,8 @@ function QuestState({ quest, claims, me }: { quest: Quest; claims: QuestClaim[];
   return (
     <>
       <Footer>
-        <button type="button" onClick={() => setTakeOpen(true)} className={`${button()} w-full`}>
-          Take this quest
+        <button type="button" onClick={() => setTakeOpen(true)} disabled={!online} className={`${button()} w-full`}>
+          {online ? 'Take this quest' : 'You’re offline'}
         </button>
         <p className="tabular text-center text-[13px] text-ink-soft">{amount(stake)} deposit, back to you with the reward</p>
       </Footer>
@@ -405,7 +417,9 @@ function QuestState({ quest, claims, me }: { quest: Quest; claims: QuestClaim[];
         quest={quest}
         stake={stake}
         pending={claim.isPending}
-        pendingLabel={claimStep === 'checking' ? 'Checking…' : 'Confirm in your wallet…'}
+        pendingLabel={
+          claimStep === 'checking' ? 'Checking…' : claimStep === 'funding' ? 'Adding test QUEST…' : 'Confirm in your wallet…'
+        }
         error={claim.error}
         onConfirm={() => claim.mutate()}
       />
@@ -435,7 +449,9 @@ function TakeSheet({
   const token = tokenForMint(quest.rewardMint)
   const amount = (units: number) => `${formatUnits(units, token.decimals)} ${token.symbol}`
   const balance = useTokenBalance()
-  const canAfford = balance.data === undefined || balance.data >= stake
+  const online = useOnline()
+  // On devnet the missing test QUEST is minted when they confirm.
+  const canAfford = CLUSTER === 'devnet' || balance.data === undefined || balance.data >= stake
   const win = quest.rewardAmount - feeFor(quest.rewardAmount) + stake
 
   return (
@@ -458,8 +474,13 @@ function TakeSheet({
           {errorMessage(error)}
         </p>
       )}
-      <button type="button" onClick={onConfirm} disabled={pending || !canAfford} className={`${button()} mt-5 w-full`}>
-        {pending ? pendingLabel : `Put down ${amount(stake)} and start`}
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={pending || !canAfford || !online}
+        className={`${button()} mt-5 w-full`}
+      >
+        {pending ? pendingLabel : !online ? 'You’re offline' : `Put down ${amount(stake)} and start`}
       </button>
       <button type="button" onClick={onClose} disabled={pending} className="press mt-1 h-11 w-full text-[17px] text-moss">
         Not now
@@ -659,13 +680,23 @@ function ResultView({ quest, claim, onDone }: { quest: Quest; claim: QuestClaim;
 }
 
 function Creator({ quest }: { quest: Quest }) {
+  const paid = quest.creator?.paid ?? 0
+  const judged = paid + (quest.creator?.rejected ?? 0)
   return (
     <>
       <Avatar person={quest.creator} size={28} />
-      <p className="min-w-0 truncate">
-        <span className="font-semibold">{displayName(quest.creator)}</span>
-        <span className="text-ink-soft"> · posted {timeAgo(quest.createdAt)}</span>
-      </p>
+      <div className="min-w-0">
+        <p className="truncate">
+          <span className="font-semibold">{displayName(quest.creator)}</span>
+          <span className="text-ink-soft"> · posted {timeAgo(quest.createdAt)}</span>
+        </p>
+        {/* The one thing a taker wants to know about a stranger: do they pay? */}
+        {judged > 0 && (
+          <p className="tabular truncate text-[13px] text-ink-soft">
+            Paid out {paid} of {judged} finished {judged === 1 ? 'quest' : 'quests'}
+          </p>
+        )}
+      </div>
     </>
   )
 }
