@@ -14,6 +14,11 @@ const nextConfig = {
       },
     ],
   },
+  // GoDaddy's parking page sent visitors to /lander, so browsers that saw the domain
+  // before it pointed here still autocomplete to it.
+  async redirects() {
+    return [{ source: '/lander', destination: '/', permanent: true }]
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000'],
