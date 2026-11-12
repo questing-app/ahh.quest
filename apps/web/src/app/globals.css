@@ -124,12 +124,15 @@
   .landing-phone {
     position: absolute;
     /* On a tall window it drops with the ground, so its foot stays buried. */
-    top: max(20px, calc(100% - 976px));
+    top: max(20px, calc(100% - 813px));
     left: 50%;
-    /* The frame image at the scale that makes its screen 390px wide. */
+    /* The frame image at the size that makes its screen 390px wide, the width the screen
+       inside is drawn at; the whole phone is then shown at 85%. */
     width: 433.4px;
     height: 886.2px;
     margin-left: -216.7px;
+    scale: 0.85;
+    transform-origin: 50% 0;
     animation: landing-emerge 1200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
   .landing-phone-frame {
@@ -178,14 +181,14 @@
     -webkit-mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
     mask-image: radial-gradient(circle closest-side, transparent 28%, #000 44%, transparent 96%);
   }
-  /* The art's own foreground, redrawn with a slight rise where the phone comes up. It is
-     cut from the same picture, so it is sized and placed exactly like the background. */
+  /* The art's own foreground, redrawn level, in front of the phone's foot. It is cut from
+     the same picture, so it is sized and placed exactly like the background. */
   .landing-ground {
     position: absolute;
     bottom: 0;
     left: 50%;
     width: calc(max(100vw, 177.68vh, 1599px) * 0.4199);
-    aspect-ratio: 1536 / 406;
+    aspect-ratio: 1536 / 304;
     translate: -50% 0;
     background: url('/art/landing-ground.webp') center / 100% 100% no-repeat;
     pointer-events: none;
@@ -205,12 +208,12 @@
   }
   .landing-card-left {
     top: 168px;
-    right: calc(50% + 252px);
+    right: calc(50% + 220px);
     animation-delay: 700ms, 1600ms;
   }
   .landing-card-right {
     top: 64px;
-    left: calc(50% + 252px);
+    left: calc(50% + 220px);
     animation-delay: 850ms, 1750ms;
   }
 
