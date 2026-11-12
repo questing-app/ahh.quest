@@ -59,7 +59,7 @@ async function send(env: Env, db: Database, userId: string, message: PushMessage
   const webpush = mod.default ?? mod
   const options = {
     vapidDetails: {
-      subject: env.VAPID_SUBJECT || env.WEB_URL || 'https://quest.app',
+      subject: env.VAPID_SUBJECT || env.WEB_URL || 'https://ahh.quest',
       publicKey: env.VAPID_PUBLIC_KEY!,
       privateKey: env.VAPID_PRIVATE_KEY!,
     },
