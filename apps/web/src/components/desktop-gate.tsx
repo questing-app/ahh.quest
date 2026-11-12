@@ -38,15 +38,6 @@ export function DesktopGate() {
           <p className="mt-4 max-w-[440px] text-[18px] leading-relaxed text-ink-soft">
             Post a challenge with a reward locked up. Whoever films it and gets approved is paid.
           </p>
-
-          <button
-            type="button"
-            onClick={() => setDesktopApp(true)}
-            className="group mt-7 inline-flex h-[54px] items-center gap-2 rounded-full bg-moss px-8 text-[17px] font-semibold text-paper-raised shadow-[0_14px_30px_-12px_rgba(58,80,31,0.7)] transition-colors hover:bg-moss-deep"
-          >
-            Open Quest
-            <ArrowRight className="h-[18px] w-[18px] transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
-          </button>
         </main>
 
         <div className="landing-stage" aria-hidden>
@@ -80,6 +71,15 @@ export function DesktopGate() {
             </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setDesktopApp(true)}
+          className="landing-cta group inline-flex h-[54px] items-center gap-2 rounded-full bg-moss px-8 text-[17px] font-semibold text-paper-raised transition-colors hover:bg-moss-deep"
+        >
+          Open Quest
+          <ArrowRight className="h-[18px] w-[18px] transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
+        </button>
       </div>
 
       <button type="button" onClick={() => setDesktopApp(false)} className="desktop-back">
