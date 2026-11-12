@@ -57,6 +57,9 @@ export async function createQuest(db: Database, env: Env, input: CreateQuestInpu
     txSignature: input.txSignature,
     createdAt: account.createdAt.toNumber(),
     closedAt: null,
+    imageUrl: null,
+    imageTries: 0,
+    imageTriedAt: null,
   }
 
   await db.insert(quests).values(quest)
@@ -136,6 +139,7 @@ export function formatQuest(quest: typeof quests.$inferSelect) {
     txSignature: quest.txSignature,
     createdAt: quest.createdAt,
     closedAt: quest.closedAt,
+    imageUrl: quest.imageUrl,
   }
 }
 

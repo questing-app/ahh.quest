@@ -24,16 +24,16 @@ export function SkeletonCards({ count = 3, label = 'Loading' }: { count?: number
   return (
     <ul className="mx-4 space-y-3" aria-busy="true" aria-label={label}>
       {Array.from({ length: count }, (_, i) => (
-        <li key={i} className="rounded-[16px] bg-paper-raised p-4">
-          <div className="flex items-center justify-between">
+        <li key={i} className="overflow-hidden rounded-[16px] bg-paper-raised">
+          <div className="aspect-[3/2] bg-ink/[0.05] motion-safe:animate-pulse" />
+          <div className="p-4">
             <div className={`${bar} h-6 w-24`} />
-            <div className={`${bar} h-5 w-14`} />
-          </div>
-          <div className={`${bar} mt-4 h-3.5`} style={{ width: `${90 - ((i * 17) % 30)}%` }} />
-          <div className={`${bar} mt-2 h-3.5 w-3/5`} />
-          <div className="mt-4 flex items-center gap-2">
-            <div className={`${bar} h-[22px] w-[22px]`} />
-            <div className={`${bar} h-3 w-28`} />
+            <div className={`${bar} mt-4 h-3.5`} style={{ width: `${90 - ((i * 17) % 30)}%` }} />
+            <div className={`${bar} mt-2 h-3.5 w-3/5`} />
+            <div className="mt-4 flex items-center gap-2">
+              <div className={`${bar} h-[22px] w-[22px]`} />
+              <div className={`${bar} h-3 w-28`} />
+            </div>
           </div>
         </li>
       ))}

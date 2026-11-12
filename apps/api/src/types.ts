@@ -44,6 +44,12 @@ export interface Env {
   VAPID_SUBJECT?: string
   /** Where notification links point, e.g. https://quest.example */
   WEB_URL?: string
+
+  // House accounts (devnet only). Off unless HOUSE_SEED is set.
+  /** Secret the house wallets are derived from. */
+  HOUSE_SEED?: string
+  /** Set to "off" to pause them without removing the seed. */
+  HOUSE_AGENTS?: string
 }
 
 export interface AuthContext {

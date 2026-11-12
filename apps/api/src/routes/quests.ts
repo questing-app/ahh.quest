@@ -7,6 +7,7 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import { fetchQuest, variant } from '@quest/sdk'
 import { createQuest, getQuestById, listQuests, formatQuest, formatQuestsWithCreators } from '../services/quest.service'
 import { isDescriptionAllowed } from '../services/moderation.service'
+import { ensureQuestArt } from '../services/quest-art.service'
 import { checkQuestCreateLimit } from '../middleware/rate-limit'
 import { validateClaim, recordClaim, formatClaim } from '../services/claim.service'
 import { getProgram } from '../lib/solana'
@@ -47,6 +48,14 @@ questRoutes.post('/', authMiddleware, async (c) => {
     onchainId: body.onchainId,
     txSignature: body.txSignature,
   })
+
+  // Paint its picture in the background; the card shows without one until then.
+  const painting = ensureQuestArt(c.env, db, quest).catch(() => null)
+  try {
+    c.executionCtx.waitUntil(painting)
+  } catch {
+    // On Node there is no execution context and the promise simply runs on.
+  }
 
   return c.json(formatQuest(quest), 201)
 })

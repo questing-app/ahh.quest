@@ -4,6 +4,8 @@ import { createDbClient } from '../db/client'
 import { OracleService } from '../services/oracle.service'
 import { recordApproved, recordReleased } from '../services/settlement.service'
 import type { Env } from '../types'
+import { paintMissingArt } from '../services/quest-art.service'
+import { runHouse } from '../services/house.service'
 
 // Runs every 5 minutes. Both instructions are permissionless on-chain, so the
 // oracle only pays the fee. The DB changes only after the transaction lands.
@@ -44,5 +46,17 @@ export async function runCrank(env: Env): Promise<void> {
     } catch (err) {
       console.error(`auto_approve failed for ${claim.id}:`, err)
     }
+  }
+
+  // Neither of these may hold up settlements, so they go last and fail quietly.
+  try {
+    await runHouse(env, db)
+  } catch (err) {
+    console.error('house run failed:', err)
+  }
+  try {
+    await paintMissingArt(env, db)
+  } catch (err) {
+    console.error('quest art pass failed:', err)
   }
 }

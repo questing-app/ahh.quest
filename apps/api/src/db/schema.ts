@@ -40,6 +40,10 @@ export const quests = sqliteTable('quests', {
   createdAt: integer('created_at').notNull(),
   /** When the quest stopped being open: paid, rejected or cancelled. */
   closedAt: integer('closed_at'),
+  /** Featured picture. Null until one has been painted. */
+  imageUrl: text('image_url'),
+  imageTries: integer('image_tries').notNull().default(0),
+  imageTriedAt: integer('image_tried_at'),
 }, (table) => ({
   statusIdx: index('quests_status_idx').on(table.status),
   creatorIdx: index('quests_creator_idx').on(table.creatorId),
@@ -120,3 +124,18 @@ export const pushSubscriptions = sqliteTable('push_subscriptions', {
 }, (table) => ({
   userIdx: index('push_user_idx').on(table.userId),
 }))
+
+// ── House dares ────────────────────────────────
+
+/** Dares waiting to be posted by the house accounts (see house.service). */
+export const houseDares = sqliteTable('house_dares', {
+  id: text('id').primaryKey(),
+  /** Which house account posts it: users.privy_user_id = 'house:<agent>'. */
+  agent: integer('agent').notNull(),
+  description: text('description').notNull().unique(),
+  rewardAmount: integer('reward_amount').notNull(),
+  /** Seconds the quest stays open once posted. Null means no limit. */
+  timeLimit: integer('time_limit'),
+  usedQuestId: text('used_quest_id'),
+  createdAt: integer('created_at').notNull(),
+})

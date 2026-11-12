@@ -215,8 +215,27 @@ function Pill({ tone = 'plain', children }: { tone?: PillTone; children: React.R
   )
 }
 
-function Title({ children }: { children: React.ReactNode }) {
-  return <h1 className="px-4 pt-2 font-display text-[28px] leading-[1.12]">{children}</h1>
+/** The dare, under its picture when it has one. */
+function Title({ quest }: { quest: Quest }) {
+  const [artFailed, setArtFailed] = useState(false)
+  const art = artFailed ? null : quest.imageUrl
+  return (
+    <>
+      {art ? (
+        <div className="relative mx-4 mt-1 aspect-[3/2] overflow-hidden rounded-[16px] bg-paper-sunk">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={art}
+            alt=""
+            decoding="async"
+            onError={() => setArtFailed(true)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
+      <h1 className={`px-4 font-display text-[28px] leading-[1.12] ${art ? 'pt-4' : 'pt-2'}`}>{quest.description}</h1>
+    </>
+  )
 }
 
 function RewardCard({ quest }: { quest: Quest }) {
@@ -418,7 +437,7 @@ function BrowseView({ quest, claims, me }: { quest: Quest; claims: QuestClaim[];
             </div>
           )}
         </div>
-        <Title>{quest.description}</Title>
+        <Title quest={quest} />
 
         <RewardCard quest={quest} />
         <TimelineCard quest={quest} claims={claims} />
@@ -620,7 +639,7 @@ function PosterView({ quest, claims }: { quest: Quest; claims: QuestClaim[] }) {
     <div className={waiting || checked ? FOOTER_SPACE : TAB_BAR_SPACE}>
       <NavBar title="" back="Activity" backHref="/activity" right={pill} />
       <main>
-        <Title>{quest.description}</Title>
+        <Title quest={quest} />
         <RewardCard quest={quest} />
         <TimelineCard quest={quest} claims={claims} />
 
@@ -723,7 +742,7 @@ function TakingView({ quest, claims, claim }: { quest: Quest; claims: QuestClaim
     <div className={TALL_FOOTER_SPACE}>
       <NavBar title="" back="Activity" backHref="/activity" right={<Pill tone="warn">You’re on it</Pill>} />
       <main>
-        <Title>{quest.description}</Title>
+        <Title quest={quest} />
 
         <div className="mx-4 mt-4 rounded-[16px] bg-paper-raised px-5 py-5 text-center">
           {inTime ? (
@@ -806,7 +825,7 @@ function SentView({ quest, claims, claim }: { quest: Quest; claims: QuestClaim[]
         right={<Pill>{checked ? 'Being reviewed' : 'Being checked'}</Pill>}
       />
       <main>
-        <Title>{quest.description}</Title>
+        <Title quest={quest} />
         <TimelineCard quest={quest} claims={claims} />
 
         <Card title="Video sent">
@@ -921,7 +940,7 @@ function RejectedView({ quest, claim }: { quest: Quest; claim: QuestClaim }) {
     <div className={TAB_BAR_SPACE}>
       <NavBar title="" back="Activity" backHref="/activity" right={<Pill tone="bad">Not approved</Pill>} />
       <main>
-        <Title>{quest.description}</Title>
+        <Title quest={quest} />
 
         <div className="mx-4 mt-4 rounded-[16px] bg-paper-raised px-5 py-4">
           <p className="text-[17px] font-semibold">{byAi ? 'The AI check rejected it' : `${poster} rejected it`}</p>

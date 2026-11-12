@@ -62,7 +62,7 @@ mediaRoutes.post('/upload-frame', authMiddleware, async (c) => {
 // Serves public media straight from R2. Frames stay private to the verifier.
 export const publicMediaRoutes = new Hono<{ Bindings: Env }>()
 
-publicMediaRoutes.get('/:kind{videos|thumbnails|avatars}/*', async (c) => {
+publicMediaRoutes.get('/:kind{videos|thumbnails|avatars|quests}/*', async (c) => {
   const key = c.req.path.replace(/^\/media\//, '')
   const range = c.req.header('range')?.match(/bytes=(\d+)-(\d*)/)
   const object = await c.env.R2.get(key, range ? {

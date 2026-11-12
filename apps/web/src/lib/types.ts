@@ -34,6 +34,8 @@ export interface Quest {
   creatorId: string
   creator: Creator | null
   description: string
+  /** The featured picture, once it has been painted. */
+  imageUrl: string | null
   questType: 'direct' | 'open'
   status: QuestStatus
   rewardAmount: number

@@ -7,6 +7,9 @@ const COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: 'proofs', column: 'reject_reason', ddl: 'ALTER TABLE proofs ADD COLUMN reject_reason text' },
   { table: 'claims', column: 'settled_at', ddl: 'ALTER TABLE claims ADD COLUMN settled_at integer' },
   { table: 'quests', column: 'closed_at', ddl: 'ALTER TABLE quests ADD COLUMN closed_at integer' },
+  { table: 'quests', column: 'image_url', ddl: 'ALTER TABLE quests ADD COLUMN image_url text' },
+  { table: 'quests', column: 'image_tries', ddl: 'ALTER TABLE quests ADD COLUMN image_tries integer NOT NULL DEFAULT 0' },
+  { table: 'quests', column: 'image_tried_at', ddl: 'ALTER TABLE quests ADD COLUMN image_tried_at integer' },
 ]
 
 const TABLES = [
@@ -18,6 +21,15 @@ const TABLES = [
     created_at integer NOT NULL
   )`,
   'CREATE INDEX IF NOT EXISTS push_user_idx ON push_subscriptions (user_id)',
+  `CREATE TABLE IF NOT EXISTS house_dares (
+    id text PRIMARY KEY NOT NULL,
+    agent integer NOT NULL,
+    description text NOT NULL UNIQUE,
+    reward_amount integer NOT NULL,
+    time_limit integer,
+    used_quest_id text,
+    created_at integer NOT NULL
+  )`,
 ]
 
 export async function ensureSchema(env: Env) {

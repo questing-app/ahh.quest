@@ -12,6 +12,7 @@ import { mediaRoutes, publicMediaRoutes } from './routes/media'
 import { webhookRoutes } from './routes/webhooks'
 import { devRoutes } from './routes/dev'
 import { pushRoutes } from './routes/push'
+import { internalRoutes } from './routes/internal'
 import { processVerificationJob } from './services/verification.service'
 import { runCrank } from './cron/crank'
 import { ApiError } from './lib/errors'
@@ -36,6 +37,7 @@ app.route('/media', publicMediaRoutes)
 app.route('/api/webhooks', webhookRoutes)
 app.route('/api/dev', devRoutes)
 app.route('/api/push', pushRoutes)
+app.route('/api/internal', internalRoutes)
 
 // Global error handler
 app.onError((err, c) => {
