@@ -91,11 +91,9 @@ export function DesktopGate() {
 }
 
 const SAMPLE = [
-  { reward: '500', pill: '6h left', soon: true, dare: 'Juggle three eggs for 30 seconds without dropping one.', who: 'Dev', ago: '2h ago' },
-  { reward: '120', pill: '3 days', soon: false, dare: 'Order a coffee entirely in song, start to finish.', who: 'Mara', ago: '5h ago' },
-  { reward: '75', pill: '5 days', soon: false, dare: 'Read tomorrow’s weather like a sports commentator.', who: 'Inés', ago: '1d ago' },
-  { reward: '300', pill: 'No limit', soon: false, dare: 'Parallel park in one move, filmed from the kerb.', who: 'Tobi', ago: '2d ago' },
-  { reward: '60', pill: '2 days', soon: false, dare: 'Teach your dog a new trick and show it twice.', who: 'June', ago: '3d ago' },
+  { art: 'eggs', reward: '500', pill: '6h left', soon: true, dare: 'Juggle three eggs over your bed for 30 seconds.', who: 'Dev', ago: '2h ago' },
+  { art: 'coffee', reward: '120', pill: '3 days', soon: false, dare: 'Order a coffee using only interpretive dance.', who: 'Mara', ago: '5h ago' },
+  { art: 'weather', reward: '75', pill: '5 days', soon: false, dare: 'Give a dramatic weather report while a friend sprays you with a hose.', who: 'Inés', ago: '1d ago' },
 ]
 
 const TABS = [
@@ -138,27 +136,31 @@ function PhoneScreen() {
       <h3 className="px-8 pb-1.5 pt-5 text-[13px] uppercase tracking-wide text-ink-soft">Open now</h3>
       <ul className="mx-4 space-y-3">
         {SAMPLE.map((q) => (
-          <li key={q.dare} className="rounded-[16px] bg-paper-raised p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="leading-none">
-                <span className="tabular font-display text-[26px] text-moss">{q.reward}</span>{' '}
-                <span className="text-[12px] font-semibold tracking-wide text-ink-soft">QUEST</span>
-              </p>
+          <li key={q.dare} className="overflow-hidden rounded-[16px] bg-paper-raised">
+            <div className="relative aspect-[3/2] bg-paper-sunk">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/art/feed/${q.art}.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-none ${
-                  q.soon ? 'bg-[#F3E3C4] text-[#6E4310]' : 'bg-ink/[0.06] text-ink-soft'
+                className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-none ${
+                  q.soon ? 'bg-[#F3E3C4] text-[#6E4310]' : 'bg-paper-raised text-ink'
                 }`}
               >
                 {q.pill}
               </span>
+              <p className="absolute bottom-0 left-0 rounded-tr-[14px] bg-paper-raised pb-0.5 pl-4 pr-3.5 pt-2.5 leading-none">
+                <span className="tabular font-display text-[26px] text-moss">{q.reward}</span>{' '}
+                <span className="text-[12px] font-semibold tracking-wide text-ink-soft">QUEST</span>
+              </p>
             </div>
-            <p className="mt-2.5 text-[17px] leading-snug">{q.dare}</p>
-            <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-soft">
-              <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[10px] text-moss">
-                {q.who.charAt(0)}
-              </span>
-              {q.who} · posted {q.ago}
-            </p>
+            <div className="px-4 pb-4 pt-2">
+              <p className="text-[17px] leading-snug">{q.dare}</p>
+              <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-soft">
+                <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[10px] text-moss">
+                  {q.who.charAt(0)}
+                </span>
+                {q.who} · posted {q.ago}
+              </p>
+            </div>
           </li>
         ))}
       </ul>
