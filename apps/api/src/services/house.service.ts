@@ -71,13 +71,21 @@ export interface HouseSeed {
 export async function seedHouse(env: Env, db: Database, seed: HouseSeed) {
   if (!houseEnabled(env)) throw new Error('House accounts are off')
   let accounts = 0
+  let renamed = 0
   let queued = 0
 
   for (const a of seed.agents ?? []) {
     const pubkey = (await keypairFor(env, a.agent)).publicKey.toBase58()
     const privyUserId = `${PREFIX}${a.agent}`
     const existing = await db.select().from(users).where(eq(users.privyUserId, privyUserId)).get()
-    if (existing) continue
+    if (existing) {
+      // A new name for an account that is already there.
+      if (a.username && a.username !== existing.username) {
+        await db.update(users).set({ username: a.username }).where(eq(users.id, existing.id))
+        renamed++
+      }
+      continue
+    }
     await db.insert(users).values({
       id: nanoid(),
       privyUserId,
@@ -108,7 +116,7 @@ export async function seedHouse(env: Env, db: Database, seed: HouseSeed) {
     queued += res.rowsAffected
   }
 
-  return { accounts, queued }
+  return { accounts, renamed, queued }
 }
 
 export async function houseUser(db: Database, agent: number) {
@@ -195,6 +203,31 @@ async function retire(env: Env, db: Database, user: User, quest: typeof quests.$
   await db.update(quests).set({ status: 'cancelled', closedAt: now() }).where(eq(quests.id, quest.id))
 }
 
+/**
+ * Starts the house over: empties the dare queue and takes down every house
+ * post nobody has picked up. Posts with a claim on them are left alone.
+ */
+export async function clearHouse(env: Env, db: Database) {
+  if (!houseEnabled(env)) throw new Error('House accounts are off')
+  const team = await houseUsers(db)
+  const dares = (await db.delete(houseDares)).rowsAffected
+  if (!team.length) return { dares, retired: 0, kept: 0 }
+
+  const open = await db.select().from(quests)
+    .where(and(inArray(quests.creatorId, team.map((u) => u.id)), inArray(quests.status, ['active', 'claimed'])))
+    .all()
+  let retired = 0
+  for (const quest of open.filter((q) => q.status === 'active')) {
+    try {
+      await retire(env, db, team.find((u) => u.id === quest.creatorId)!, quest)
+      retired++
+    } catch (err) {
+      console.error(`house retire failed for ${quest.id}:`, err)
+    }
+  }
+  return { dares, retired, kept: open.length - retired }
+}
+
 async function postIfDue(env: Env, db: Database, team: User[], force: boolean): Promise<string | null> {
   const ids = team.map((u) => u.id)
   const mine = await db.select().from(quests)
@@ -274,13 +307,16 @@ const WRITER_PROMPT = `You write dares for one person's account on Quest, an app
 
 You are given dares this person has posted before. Write new ones that sound like the same person: same length, same punctuation and capitalisation habits, same sense of humour. Do not repeat or lightly reword any dare in the "already used" list.
 
+The people on Quest are crypto traders, and the dares are in-jokes for them. The usual joke is a piece of trader talk taken literally (buy the dip with an actual dip, diamond hands with ice cubes, a rug pull with a real rug, touching actual grass) or a trader's bad habit acted out at home (staring at charts, holding bags, explaining a loss to someone who did not ask). Slang like gm, wagmi, ngmi, ser, ape in, paper hands, bags, rugged, the floor, the chart and wen lambo is normal. Use it the way this person does in their examples, and not in every dare.
+
 Every dare must be:
 - Something one person can film in under two minutes, alone or with a willing friend, with things most people have at home or in a normal town.
 - Harmless and legal. Nobody gets hurt, scared, tricked, filmed without agreeing, or embarrassed against their will. Nothing dangerous, nothing with food waste on a big scale, no trespassing, no driving, no heights, no alcohol or drugs, nothing sexual, political or religious, no real named people.
+- About the joke, never about money. No dare asks anyone to buy, sell, trade, bet, send, borrow or show a balance. No real coin, token, project, exchange or influencer is named. Nothing reads as advice or a price call.
 - Silly rather than mean. The person doing it is the only one who looks daft.
 - Under 140 characters. No hashtags, no emoji unless the examples use them.
 
-Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 20-150>, "days": <3, 7 or null>}]}`
+Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 25-500>, "days": <3, 7 or null>}]}`
 
 /** Tops the queue up in the voice of the accounts that are running low. Needs OpenAI. */
 async function writeDares(env: Env, db: Database, team: User[]): Promise<number> {
@@ -344,7 +380,7 @@ async function writeDares(env: Env, db: Database, team: User[]): Promise<number>
       id: nanoid(),
       agent,
       description: d.text.trim(),
-      rewardAmount: Math.min(150, Math.max(20, Math.round(d.reward))) * 1_000_000,
+      rewardAmount: Math.min(500, Math.max(25, Math.round(d.reward))) * 1_000_000,
       timeLimit: d.days === 3 || d.days === 7 ? d.days * 86400 : null,
       usedQuestId: null,
       createdAt: now(),

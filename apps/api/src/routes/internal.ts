@@ -8,7 +8,7 @@ import { quests, users } from '../db/schema'
 import { BadRequest, NotFound, Unauthorized } from '../lib/errors'
 import { StorageService } from '../services/storage.service'
 import { paintMissingArt, storeArt } from '../services/quest-art.service'
-import { houseUser, runHouse, seedHouse, type HouseSeed } from '../services/house.service'
+import { clearHouse, houseUser, runHouse, seedHouse, type HouseSeed } from '../services/house.service'
 
 // Operator endpoints. Every call needs the internal key in x-internal-key.
 export const internalRoutes = new Hono<{ Bindings: Env }>()
@@ -71,6 +71,12 @@ internalRoutes.get('/art/missing', async (c) => {
 internalRoutes.post('/house/seed', async (c) => {
   const seed = await c.req.json<HouseSeed>()
   return c.json(await seedHouse(c.env, createDbClient(c.env), seed))
+})
+
+// POST /api/internal/house/clear
+// Empties the dare queue and takes down the house posts nobody has picked up.
+internalRoutes.post('/house/clear', async (c) => {
+  return c.json(await clearHouse(c.env, createDbClient(c.env)))
 })
 
 // PUT /api/internal/house/:agent/avatar

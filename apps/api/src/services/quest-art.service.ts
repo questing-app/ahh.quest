@@ -41,7 +41,7 @@ The illustrations are storybook ink-and-watercolour pictures set in an old fores
 Given a dare, describe ONE frozen moment, in one or two sentences, that makes someone smile:
 - The wizard is attempting the dare himself, very seriously and not very well.
 - Whoever or whatever the dare involves (an animal, a stranger, an object) reacts with total deadpan, or the knight does. An animal just looks at him like he is an idiot.
-- Move modern things into the storybook world: a phone becomes a crystal ball, a car a hay cart, a supermarket a market stall, a stranger a passing villager seen from behind.
+- Move modern things into the storybook world: a phone becomes a crystal ball, a car a hay cart, a supermarket a market stall, a stranger a passing villager seen from behind, a price chart a parchment with one jagged ink line and no numbers.
 - Say what each character is doing with their body and where they are looking. No dialogue, no text in the picture.
 
 Never offensive or in bad taste. ${ART_RULES}
