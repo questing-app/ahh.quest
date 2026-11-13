@@ -15,7 +15,7 @@ quest = "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = ".keys/deployer.json"
 
 [constants]
