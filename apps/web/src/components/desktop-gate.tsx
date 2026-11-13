@@ -91,9 +91,9 @@ export function DesktopGate() {
 }
 
 const SAMPLE = [
-  { art: 'eggs', reward: '500', pill: '6h left', soon: true, dare: 'Juggle three eggs over your bed for 30 seconds.', who: 'Dev', ago: '2h ago' },
-  { art: 'coffee', reward: '120', pill: '3 days', soon: false, dare: 'Order a coffee using only interpretive dance.', who: 'Mara', ago: '5h ago' },
-  { art: 'weather', reward: '75', pill: '5 days', soon: false, dare: 'Give a dramatic weather report while a friend sprays you with a hose.', who: 'Inés', ago: '1d ago' },
+  { art: 'ice', reward: '250', pill: '6h left', soon: true, dare: "Diamond hands check. Hold an ice cube in each fist for 60 seconds. Drop one and you're paper.", who: 'dustin.sol', ago: '2h ago' },
+  { art: 'dip', reward: '50', pill: '3 days', soon: false, dare: 'buy the dip. actual dip. dunk 3 things that should never be dunked and rate each one', who: 'toastmaxi', ago: '5h ago' },
+  { art: 'lambo', reward: '80', pill: '5 days', soon: false, dare: 'wen lambo. draw one on a cardboard box, get in, commute to your kitchen', who: 'stevo100x', ago: '1d ago' },
 ]
 
 const TABS = [
@@ -156,7 +156,7 @@ function PhoneScreen() {
               <p className="text-[17px] leading-snug">{q.dare}</p>
               <p className="mt-3 flex items-center gap-2 text-[13px] text-ink-soft">
                 <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-moss-pale font-display text-[10px] text-moss">
-                  {q.who.charAt(0)}
+                  {q.who.charAt(0).toUpperCase()}
                 </span>
                 {q.who} · posted {q.ago}
               </p>
