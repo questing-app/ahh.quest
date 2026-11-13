@@ -56,8 +56,8 @@ export function DesktopGate() {
               <Check className="h-[18px] w-[18px]" strokeWidth={2.5} />
             </span>
             <div className="min-w-0">
-              <p className="tabular truncate text-[16px] font-semibold leading-snug">Paid 51.25 QUEST</p>
-              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Juggle three eggs for 30 seconds</p>
+              <p className="tabular truncate text-[16px] font-semibold leading-snug">Paid 150 QUEST</p>
+              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Wear every bag you own at once</p>
             </div>
           </div>
 
@@ -66,7 +66,7 @@ export function DesktopGate() {
               <Play className="h-[18px] w-[18px]" strokeWidth={2.5} />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[16px] font-semibold leading-snug">Review Mara’s video</p>
+              <p className="truncate text-[16px] font-semibold leading-snug">Review kelpwhale’s video</p>
               <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Approves itself in 22 h</p>
             </div>
           </div>
