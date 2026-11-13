@@ -150,6 +150,7 @@ describe("quest", () => {
         escrow: escrowPda,
         claimer: claimer.publicKey,
         claimerTokenAccount: claimerAta,
+        rewardMint: mint,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
@@ -241,7 +242,8 @@ describe("quest", () => {
         .initialize(feeBps, burnBps)
         .accounts({
           config: configPda,
-          treasury: treasuryAta,
+          // config stores the treasury wallet; fees go to its token account for each mint
+          treasury: authority.publicKey,
           authority: authority.publicKey,
           admin: authority.publicKey,
           program: program.programId,
@@ -321,7 +323,7 @@ describe("quest", () => {
           new BN(REWARD),
           { open: {} },
           null,
-          5,
+          1,
           null,
           descHash("open quest: review this PR")
         )
@@ -345,7 +347,7 @@ describe("quest", () => {
       expect(quest.rewardAmount.toNumber()).to.equal(REWARD);
       expect(quest.questType).to.deep.equal({ open: {} });
       expect(quest.status).to.deep.equal({ active: {} });
-      expect(quest.maxClaimers).to.equal(5);
+      expect(quest.maxClaimers).to.equal(1);
       expect(quest.currentClaimers).to.equal(0);
       expect(quest.target).to.be.null;
 
@@ -546,6 +548,7 @@ describe("quest", () => {
           escrow: escrowPda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -607,6 +610,7 @@ describe("quest", () => {
             escrow: ePda,
             claimer: creator.publicKey,
             claimerTokenAccount: creatorAta,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
           })
@@ -635,6 +639,7 @@ describe("quest", () => {
             escrow: ePda,
             claimer: claimer.publicKey,
             claimerTokenAccount: claimerAta,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
           })
@@ -693,6 +698,7 @@ describe("quest", () => {
           escrow: deriveEscrowPda(questPda)[0],
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -758,6 +764,7 @@ describe("quest", () => {
           escrow: ePda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -806,6 +813,7 @@ describe("quest", () => {
           claimerTokenAccount: claimerAta,
           treasury: treasuryAta,
           authority: authority.publicKey,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
@@ -848,6 +856,7 @@ describe("quest", () => {
             claimerTokenAccount: claimerAta,
             treasury: treasuryAta,
             authority: creator.publicKey, // not the oracle
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([creator])
@@ -881,6 +890,7 @@ describe("quest", () => {
           creatorTokenAccount: creatorAta,
           claimerTokenAccount: claimerAta,
           authority: authority.publicKey,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
@@ -912,6 +922,7 @@ describe("quest", () => {
           creatorTokenAccount: creatorAta,
           claimerTokenAccount: claimerAta,
           authority: authority.publicKey,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
@@ -941,7 +952,7 @@ describe("quest", () => {
           new BN(REWARD),
           { open: {} },
           null,
-          3,
+          1,
           null,
           descHash("cancellable")
         )
@@ -968,6 +979,7 @@ describe("quest", () => {
           escrow: escrowPda,
           creator: creator.publicKey,
           creatorTokenAccount: creatorAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([creator])
@@ -1016,6 +1028,7 @@ describe("quest", () => {
             escrow: escrowPda,
             creator: claimer.publicKey,
             creatorTokenAccount: claimerAta,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([claimer])
@@ -1038,7 +1051,7 @@ describe("quest", () => {
           new BN(REWARD),
           { open: {} },
           null,
-          5,
+          1,
           null,
           descHash("has claimers")
         )
@@ -1065,6 +1078,7 @@ describe("quest", () => {
           escrow: escrowPda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -1079,6 +1093,7 @@ describe("quest", () => {
             escrow: escrowPda,
             creator: creator.publicKey,
             creatorTokenAccount: creatorAta,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([creator])
@@ -1086,7 +1101,9 @@ describe("quest", () => {
         expect.fail("should have thrown");
       } catch (err) {
         const anchorErr = err as AnchorError;
-        expect(anchorErr.error.errorCode.code).to.equal("QuestAlreadyClaimed");
+        // Single-claimer rule: claiming moves the quest out of Active, so the
+        // status check fires before the claimer-count check.
+        expect(anchorErr.error.errorCode.code).to.equal("QuestNotActive");
       }
     });
   });
@@ -1134,6 +1151,7 @@ describe("quest", () => {
           escrow: escrowPda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -1154,6 +1172,7 @@ describe("quest", () => {
           escrow: escrowPda,
           creatorTokenAccount: creatorAta,
           claimer: claimer.publicKey,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([claimer])
@@ -1214,6 +1233,7 @@ describe("quest", () => {
           escrow: escrowPda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -1230,6 +1250,7 @@ describe("quest", () => {
             escrow: escrowPda,
             creatorTokenAccount: creatorAta,
             cranker: randomUser.publicKey,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([randomUser])
@@ -1269,6 +1290,7 @@ describe("quest", () => {
             claimerTokenAccount: claimerAta,
             treasury: treasuryAta,
             cranker: randomUser.publicKey,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([randomUser])
@@ -1317,6 +1339,7 @@ describe("quest", () => {
           escrow: escrowPda,
           claimer: claimer.publicKey,
           claimerTokenAccount: claimerAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -1334,6 +1357,7 @@ describe("quest", () => {
             claimerTokenAccount: claimerAta,
             treasury: treasuryAta,
             cranker: randomUser.publicKey,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([randomUser])
@@ -1425,6 +1449,7 @@ describe("quest", () => {
           escrow: escrowPda,
           creator: creator.publicKey,
           creatorTokenAccount: creatorAta,
+          rewardMint: mint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([creator])
@@ -1441,6 +1466,7 @@ describe("quest", () => {
             escrow: escrowPda,
             claimer: claimer.publicKey,
             claimerTokenAccount: claimerAta,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
           })
@@ -1519,6 +1545,7 @@ describe("quest", () => {
             escrow: escrowPda,
             creatorTokenAccount: creatorAta,
             claimer: claimer.publicKey,
+            rewardMint: mint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .signers([claimer])
