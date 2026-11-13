@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.0",
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.95.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.10",
+    "chai": "^4.3.4",
+    "mocha": "^11.8.0",
+    "ts-mocha": "^11.1.0",
+    "typescript": "^5.7.3"
+  }
+}

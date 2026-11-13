@@ -22,4 +22,7 @@ wallet = ".keys/deployer.json"
 quest_mint = "E7Xfasv5CRTNc6Xb16w36BZk3HRSogh8T4ZFimSnpump"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[test]
+upgradeable = true
