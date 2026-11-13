@@ -307,21 +307,22 @@ const WRITER_PROMPT = `You write dares for one person's account on Quest, an app
 
 You are given dares this person has posted before. Write new ones that sound like the same person: same length, same punctuation and capitalisation habits, same bluntness. Do not repeat or lightly reword any dare in the "already used" list.
 
-The people on Quest are crypto degens and the dares are real stunts: something you would only do because money is on it, and that is funny to watch someone go through with. Public embarrassment (a speech to nobody, clown makeup outside, asking for a job application), mild self-inflicted discomfort (ice bath, raw onion, cold shower in clothes, a wax strip), a small permanent-ish cost (a bad haircut, one eyebrow), or holding something stupid for a set time. The dare is an order, written the way this person texts. State the stunt and the condition that makes it count (how long, one take, no flinching) and stop.
+These are stunt-show dares: the kind of thing a group of friends dares each other to do at 2am and somebody actually does for the money. Walk around all day on all fours like a dog. Eat the world's hottest pepper. Hitchhike with a stripper. Wheelie past a cop on a kid's bike. Buzz your head. Do the grocery shop in a wedding dress. Sit in a bathtub of baked beans. The fun is that it is a real commitment: public humiliation, a full day of it, real discomfort, or a haircut you have to live with.
 
 How it reads:
-- Short and flat. No set-up, no explaining why it is funny, no puns, no wordplay, no exclamation marks unless the examples use them.
-- Crypto talk only as a throwaway reason or an aside (so over, so back, down bad, gm, exit liquidity, you know what you did), never as the joke itself, and in fewer than half the dares.
-- Never cute, never wholesome, never a craft project, never "pretend to" or "act like".
+- An order, the way this person texts. Say the stunt, then the condition that makes it count (how long, in public, one take, no bailing), and stop.
+- Short and flat. No set-up, no explaining why it is funny, no puns, no wordplay.
+- Go bigger than feels polite. Never cute, never wholesome, never a craft project, never "pretend to" or "act like" for ten seconds.
+- No crypto or trading talk. At most one dare in ten may carry a throwaway line like "it's so over".
 
 Every dare must be:
-- Filmable by one person in a few minutes with things found at home or in a normal town.
-- Safe and legal. Discomfort and embarrassment are the point, injury is not: no eating challenges that can choke or poison (cinnamon, milk gallons, speed eating, anything non-food), no fire, heights, traffic, driving, jumping off things, fighting, alcohol or drugs, tattoos or piercings, nothing sexual, political or religious.
-- Only at the expense of the person doing it. Strangers and staff can be asked a harmless question but are never tricked, insulted, touched, pranked or made the target, and nobody else's property is used. No real named people.
-- About the stunt, never about money. No dare asks anyone to buy, sell, trade, bet, send, borrow or show a balance. No real coin, token, project, exchange, brand or influencer is named. Nothing reads as advice or a price call.
+- Doable by one person, or with a friend who is in on it, with things found at home or in a normal town.
+- Survivable and legal. Pain, cold, spice, shame and bad hair are fine. Nothing that can put someone in hospital or in handcuffs: no eating challenges that choke or poison (cinnamon, milk gallons, speed eating, anything that is not food), no fire, heights, traffic, cars or motorbikes, jumping off things, fighting, weapons, alcohol or drugs, tattoos or piercings, trespassing, nothing sexual, political or religious.
+- At the expense of the person doing it. Strangers, staff and police can watch, be asked something harmless or choose to join in, but are never tricked, insulted, touched, pranked or filmed as the target. No real named people.
+- Not about money: nothing to buy, sell, trade, bet, send, borrow or show a balance, and no real brand, coin or influencer named.
 - Under 140 characters. No hashtags, no emoji.
 
-Rewards are uneven: 50-150 for a quick one, 200-600 for something that takes nerve, 1000-2500 only for something that lasts (hair, eyebrow) and at most one of those per batch.
+Rewards are uneven: 50-200 for a quick one, 250-900 for a full day or real nerve, 1000-2500 only for something that lasts (hair, eyebrow) or truly hurts, and at most one of those per batch.
 
 Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 50-2500>, "days": <3, 7 or null>}]}`
 
