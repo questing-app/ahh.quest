@@ -177,7 +177,8 @@ export type Quest = {
           "signer": true
         },
         {
-          "name": "rewardMint"
+          "name": "rewardMint",
+          "writable": true
         },
         {
           "name": "tokenProgram"
@@ -263,7 +264,8 @@ export type Quest = {
           "signer": true
         },
         {
-          "name": "rewardMint"
+          "name": "rewardMint",
+          "writable": true
         },
         {
           "name": "tokenProgram"
@@ -660,9 +662,23 @@ export type Quest = {
           "name": "treasury"
         },
         {
-          "name": "authority",
+          "name": "authority"
+        },
+        {
+          "name": "admin",
+          "docs": [
+            "The program's upgrade authority. Only it can set up the protocol, so",
+            "nobody can initialize first and make themselves the oracle."
+          ],
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "program",
+          "address": "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
+        },
+        {
+          "name": "programData"
         },
         {
           "name": "systemProgram",
@@ -830,6 +846,70 @@ export type Quest = {
           }
         }
       ]
+    },
+    {
+      "name": "updateConfig",
+      "docs": [
+        "Upgrade-authority only: rotate the oracle, move the treasury or change fees."
+      ],
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury"
+        },
+        {
+          "name": "authority"
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "program",
+          "address": "JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM"
+        },
+        {
+          "name": "programData"
+        }
+      ],
+      "args": [
+        {
+          "name": "feeBasisPoints",
+          "type": "u16"
+        },
+        {
+          "name": "burnBasisPoints",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -898,6 +978,19 @@ export type Quest = {
         10,
         65,
         93
+      ]
+    },
+    {
+      "name": "configUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
       ]
     },
     {
@@ -1112,6 +1205,11 @@ export type Quest = {
       "code": 6023,
       "name": "claimQuestMismatch",
       "msg": "Claim does not belong to this quest"
+    },
+    {
+      "code": 6024,
+      "name": "notAdmin",
+      "msg": "Only the program's upgrade authority can do this"
     }
   ],
   "types": [
@@ -1232,6 +1330,30 @@ export type Quest = {
           },
           {
             "name": "expired"
+          }
+        ]
+      }
+    },
+    {
+      "name": "configUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "feeBasisPoints",
+            "type": "u16"
+          },
+          {
+            "name": "burnBasisPoints",
+            "type": "u16"
           }
         ]
       }
