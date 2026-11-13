@@ -9,6 +9,7 @@
     "sync-idl": "cp ../../contracts/target/idl/quest.json src/idl/quest.json && cp ../../contracts/target/types/quest.ts src/idl/quest.ts",
     "typecheck": "tsc --noEmit",
     "init-devnet": "tsx scripts/init-devnet.ts",
+    "init-mainnet": "tsx scripts/init-mainnet.ts",
     "smoke-devnet": "tsx scripts/smoke-devnet.ts"
   },
   "dependencies": {

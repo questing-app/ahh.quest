@@ -21,6 +21,10 @@ const TABLES = [
     created_at integer NOT NULL
   )`,
   'CREATE INDEX IF NOT EXISTS push_user_idx ON push_subscriptions (user_id)',
+  `CREATE TABLE IF NOT EXISTS meta (
+    key text PRIMARY KEY NOT NULL,
+    value text NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS house_dares (
     id text PRIMARY KEY NOT NULL,
     agent integer NOT NULL,
@@ -42,4 +46,39 @@ export async function ensureSchema(env: Env) {
     }
   }
   for (const ddl of TABLES) await db.execute(ddl)
+  await checkNetwork(db, env)
+}
+
+/**
+ * A database belongs to one network. Quest rows are keyed by their on-chain
+ * number, and devnet and mainnet both count from 0, so pointing a mainnet API
+ * at a devnet database would mix up quests and settle the wrong ones. The
+ * first run stamps the database with QUEST_MINT; any later run with a
+ * different mint refuses to start.
+ */
+async function checkNetwork(db: ReturnType<typeof createClient>, env: Env) {
+  const stamped = await db.execute({ sql: 'SELECT value FROM meta WHERE key = ?', args: ['quest_mint'] })
+  const mint = stamped.rows[0]?.value as string | undefined
+  if (mint) {
+    if (mint !== env.QUEST_MINT) {
+      throw new Error(
+        `This database belongs to QUEST mint ${mint} but QUEST_MINT is ${env.QUEST_MINT}. ` +
+        'Use a separate database for each network.',
+      )
+    }
+    return
+  }
+  // Not stamped yet: an existing database must hold only quests in this mint.
+  const other = await db.execute({
+    sql: 'SELECT reward_mint FROM quests WHERE reward_mint != ? LIMIT 1',
+    args: [env.QUEST_MINT],
+  })
+  if (other.rows.length > 0) {
+    throw new Error(
+      `This database holds quests in mint ${other.rows[0].reward_mint} but QUEST_MINT is ${env.QUEST_MINT}. ` +
+      'Use a separate database for each network.',
+    )
+  }
+  await db.execute({ sql: 'INSERT INTO meta (key, value) VALUES (?, ?)', args: ['quest_mint', env.QUEST_MINT] })
+  console.log(`schema: database stamped for QUEST mint ${env.QUEST_MINT}`)
 }

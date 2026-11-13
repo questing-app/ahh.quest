@@ -19,6 +19,7 @@ if (existing) {
   })
 } else {
   const ix = await initializeIx(program, {
+    admin: deployer.publicKey,
     authority: deployer.publicKey,
     treasury: deployer.publicKey,
     feeBps: 250,

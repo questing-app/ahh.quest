@@ -12,6 +12,7 @@ import {
   createAccount,
   mintTo,
   getAccount,
+  getMint,
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { Quest } from "../target/types/quest";
@@ -57,10 +58,17 @@ describe("quest", () => {
   let configBump: number;
 
   const feeBps = 250; // 2.5%
-  const burnBps = 0;
+  const burnBps = 5000; // half the fee is burned, half goes to treasury
 
   // track quest count for PDA derivation
   let questCount = 0;
+
+  function programDataPda(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [program.programId.toBuffer()],
+      new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111")
+    )[0];
+  }
 
   function deriveQuestPda(id: number): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
@@ -235,6 +243,9 @@ describe("quest", () => {
           config: configPda,
           treasury: treasuryAta,
           authority: authority.publicKey,
+          admin: authority.publicKey,
+          program: program.programId,
+          programData: programDataPda(),
           systemProgram: SystemProgram.programId,
         })
         .rpc();
@@ -258,6 +269,9 @@ describe("quest", () => {
             config: configPda,
             treasury: treasuryAta,
             authority: authority.publicKey,
+            admin: authority.publicKey,
+            program: program.programId,
+            programData: programDataPda(),
             systemProgram: SystemProgram.programId,
           })
           .rpc();
@@ -265,6 +279,27 @@ describe("quest", () => {
       } catch (err) {
         // either InvalidFeeConfig or duplicate init — both are valid rejections
         expect(err).to.exist;
+      }
+    });
+
+    it("only the upgrade authority can change config", async () => {
+      const stranger = Keypair.generate();
+      try {
+        await program.methods
+          .updateConfig(feeBps, burnBps)
+          .accounts({
+            config: configPda,
+            treasury: stranger.publicKey,
+            authority: stranger.publicKey,
+            admin: stranger.publicKey,
+            program: program.programId,
+            programData: programDataPda(),
+          })
+          .signers([stranger])
+          .rpc();
+        expect.fail("should have thrown");
+      } catch (err) {
+        expect((err as AnchorError).error?.errorCode?.code).to.equal("NotAdmin");
       }
     });
   });
@@ -759,6 +794,7 @@ describe("quest", () => {
 
       const claimerBefore = await getTokenBalance(claimerAta);
       const treasuryBefore = await getTokenBalance(treasuryAta);
+      const supplyBefore = Number((await getMint(provider.connection, mint)).supply);
 
       await program.methods
         .approveCompletion()
@@ -785,8 +821,11 @@ describe("quest", () => {
       expect(claimerAfter - claimerBefore).to.equal(
         rewardAfterFee + stakeAmount
       );
-      // treasury gets fee
-      expect(treasuryAfter - treasuryBefore).to.equal(feeAmount);
+      // fee is split: burnBps of it is burned, the rest goes to treasury
+      const burnAmount = Math.floor((feeAmount * burnBps) / 10000);
+      expect(treasuryAfter - treasuryBefore).to.equal(feeAmount - burnAmount);
+      const supplyAfter = Number((await getMint(provider.connection, mint)).supply);
+      expect(supplyBefore - supplyAfter).to.equal(burnAmount);
 
       const quest = await program.account.quest.fetch(questPda);
       expect(quest.status).to.deep.equal({ completed: {} });

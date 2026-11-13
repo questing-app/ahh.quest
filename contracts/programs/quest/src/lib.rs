@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface, TransferChecked};
 
 declare_id!("JDWcp8gXX4sypdDc9h8zHVMjM9nTSWxfY16ThnsS7BLM");
 
@@ -33,6 +33,31 @@ pub mod quest {
             authority: config.authority,
             treasury: config.treasury,
             fee_basis_points,
+        });
+
+        Ok(())
+    }
+
+    /// Upgrade-authority only: rotate the oracle, move the treasury or change fees.
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        fee_basis_points: u16,
+        burn_basis_points: u16,
+    ) -> Result<()> {
+        require!(fee_basis_points <= 10000, QuestError::InvalidFeeConfig);
+        require!(burn_basis_points <= 10000, QuestError::InvalidFeeConfig);
+
+        let config = &mut ctx.accounts.config;
+        config.authority = ctx.accounts.authority.key();
+        config.treasury = ctx.accounts.treasury.key();
+        config.fee_basis_points = fee_basis_points;
+        config.burn_basis_points = burn_basis_points;
+
+        emit!(ConfigUpdated {
+            authority: config.authority,
+            treasury: config.treasury,
+            fee_basis_points,
+            burn_basis_points,
         });
 
         Ok(())
@@ -277,23 +302,16 @@ pub mod quest {
             ctx.accounts.reward_mint.decimals,
         )?;
 
-        if fee_amount > 0 {
-            token_interface::transfer_checked(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    TransferChecked {
-                        from: ctx.accounts.escrow.to_account_info(),
-                        mint: ctx.accounts.reward_mint.to_account_info(),
-                        to: ctx.accounts.treasury.to_account_info(),
-                        authority: quest.to_account_info(),
-                    },
-                    signer_seeds,
-                ),
-                fee_amount,
-
-                ctx.accounts.reward_mint.decimals,
-            )?;
-        }
+        split_fee(
+            fee_amount,
+            config.burn_basis_points,
+            &ctx.accounts.token_program,
+            &ctx.accounts.escrow,
+            &ctx.accounts.reward_mint,
+            &ctx.accounts.treasury,
+            &quest.to_account_info(),
+            signer_seeds,
+        )?;
 
         claim.status = ClaimStatus::Approved;
         quest.status = QuestStatus::Completed;
@@ -545,23 +563,16 @@ pub mod quest {
             ctx.accounts.reward_mint.decimals,
         )?;
 
-        if fee_amount > 0 {
-            token_interface::transfer_checked(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    TransferChecked {
-                        from: ctx.accounts.escrow.to_account_info(),
-                        mint: ctx.accounts.reward_mint.to_account_info(),
-                        to: ctx.accounts.treasury.to_account_info(),
-                        authority: quest.to_account_info(),
-                    },
-                    signer_seeds,
-                ),
-                fee_amount,
-
-                ctx.accounts.reward_mint.decimals,
-            )?;
-        }
+        split_fee(
+            fee_amount,
+            config.burn_basis_points,
+            &ctx.accounts.token_program,
+            &ctx.accounts.escrow,
+            &ctx.accounts.reward_mint,
+            &ctx.accounts.treasury,
+            &quest.to_account_info(),
+            signer_seeds,
+        )?;
 
         claim.status = ClaimStatus::Approved;
         quest.status = QuestStatus::Completed;
@@ -621,24 +632,110 @@ pub mod quest {
 // ACCOUNTS
 // ============================================================================
 
+/// Send the protocol fee out of a quest's escrow: `burn_bps` of it is burned,
+/// the rest goes to the treasury.
+#[allow(clippy::too_many_arguments)]
+fn split_fee<'info>(
+    fee_amount: u64,
+    burn_bps: u16,
+    token_program: &Interface<'info, TokenInterface>,
+    escrow: &InterfaceAccount<'info, TokenAccount>,
+    mint: &InterfaceAccount<'info, Mint>,
+    treasury: &InterfaceAccount<'info, TokenAccount>,
+    quest: &AccountInfo<'info>,
+    signer_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    let burn_amount = fee_amount
+        .checked_mul(burn_bps as u64)
+        .ok_or(QuestError::Overflow)?
+        .checked_div(10000)
+        .ok_or(QuestError::Overflow)?;
+    let treasury_amount = fee_amount.checked_sub(burn_amount).ok_or(QuestError::Overflow)?;
+
+    if burn_amount > 0 {
+        token_interface::burn(
+            CpiContext::new_with_signer(
+                token_program.to_account_info(),
+                Burn {
+                    mint: mint.to_account_info(),
+                    from: escrow.to_account_info(),
+                    authority: quest.clone(),
+                },
+                signer_seeds,
+            ),
+            burn_amount,
+        )?;
+    }
+
+    if treasury_amount > 0 {
+        token_interface::transfer_checked(
+            CpiContext::new_with_signer(
+                token_program.to_account_info(),
+                TransferChecked {
+                    from: escrow.to_account_info(),
+                    mint: mint.to_account_info(),
+                    to: treasury.to_account_info(),
+                    authority: quest.clone(),
+                },
+                signer_seeds,
+            ),
+            treasury_amount,
+            mint.decimals,
+        )?;
+    }
+
+    Ok(())
+}
+
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(
         init,
-        payer = authority,
+        payer = admin,
         space = 8 + QuestConfig::INIT_SPACE,
         seeds = [b"config"],
         bump
     )]
     pub config: Account<'info, QuestConfig>,
 
-    /// CHECK: Treasury account for fees
+    /// CHECK: Treasury wallet; fees go to its token account for each mint
     pub treasury: UncheckedAccount<'info>,
 
+    /// CHECK: Oracle that approves and rejects proofs; stored only
+    pub authority: UncheckedAccount<'info>,
+
+    /// The program's upgrade authority. Only it can set up the protocol, so
+    /// nobody can initialize first and make themselves the oracle.
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub admin: Signer<'info>,
+
+    #[account(constraint = program.programdata_address()? == Some(program_data.key()) @ QuestError::NotAdmin)]
+    pub program: Program<'info, crate::program::Quest>,
+
+    #[account(constraint = program_data.upgrade_authority_address == Some(admin.key()) @ QuestError::NotAdmin)]
+    pub program_data: Account<'info, ProgramData>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateConfig<'info> {
+    #[account(mut, seeds = [b"config"], bump = config.bump)]
+    pub config: Account<'info, QuestConfig>,
+
+    /// CHECK: New treasury wallet
+    pub treasury: UncheckedAccount<'info>,
+
+    /// CHECK: New oracle
+    pub authority: UncheckedAccount<'info>,
+
+    pub admin: Signer<'info>,
+
+    #[account(constraint = program.programdata_address()? == Some(program_data.key()) @ QuestError::NotAdmin)]
+    pub program: Program<'info, crate::program::Quest>,
+
+    #[account(constraint = program_data.upgrade_authority_address == Some(admin.key()) @ QuestError::NotAdmin)]
+    pub program_data: Account<'info, ProgramData>,
 }
 
 #[derive(Accounts)]
@@ -759,7 +856,7 @@ pub struct ApproveCompletion<'info> {
     pub treasury: InterfaceAccount<'info, TokenAccount>,
 
     pub authority: Signer<'info>,
-    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    #[account(mut, address = quest.reward_mint @ QuestError::WrongTokenAccount)]
     pub reward_mint: InterfaceAccount<'info, Mint>,
 
     pub token_program: Interface<'info, TokenInterface>,
@@ -885,7 +982,7 @@ pub struct AutoApprove<'info> {
 
     /// CHECK: Anyone can call this (permissionless crank)
     pub cranker: Signer<'info>,
-    #[account(address = quest.reward_mint @ QuestError::WrongTokenAccount)]
+    #[account(mut, address = quest.reward_mint @ QuestError::WrongTokenAccount)]
     pub reward_mint: InterfaceAccount<'info, Mint>,
 
     pub token_program: Interface<'info, TokenInterface>,
@@ -1015,6 +1112,14 @@ pub struct ProtocolInitialized {
 }
 
 #[event]
+pub struct ConfigUpdated {
+    pub authority: Pubkey,
+    pub treasury: Pubkey,
+    pub fee_basis_points: u16,
+    pub burn_basis_points: u16,
+}
+
+#[event]
 pub struct QuestCreated {
     pub quest_id: u64,
     pub creator: Pubkey,
@@ -1124,4 +1229,6 @@ pub enum QuestError {
     WrongTokenAccount,
     #[msg("Claim does not belong to this quest")]
     ClaimQuestMismatch,
+    #[msg("Only the program's upgrade authority can do this")]
+    NotAdmin,
 }

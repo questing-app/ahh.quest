@@ -127,9 +127,17 @@ export async function fetchClaim(program: QuestProgram, questId: Amount, claimer
 
 // Instructions
 
+const BPF_UPGRADEABLE_LOADER = new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111')
+
+/** The program's ProgramData account, which records its upgrade authority. */
+export function programDataAddress(): PublicKey {
+  return PublicKey.findProgramAddressSync([PROGRAM_ID.toBuffer()], BPF_UPGRADEABLE_LOADER)[0]
+}
+
+/** One-time setup. `admin` must be the program's upgrade authority and signs; `authority` is the oracle. */
 export function initializeIx(
   program: QuestProgram,
-  a: { authority: Key; treasury: Key; feeBps: number; burnBps: number },
+  a: { admin: Key; authority: Key; treasury: Key; feeBps: number; burnBps: number },
 ) {
   return program.methods
     .initialize(a.feeBps, a.burnBps)
@@ -137,7 +145,28 @@ export function initializeIx(
       config: configPda(),
       treasury: key(a.treasury),
       authority: key(a.authority),
+      admin: key(a.admin),
+      program: PROGRAM_ID,
+      programData: programDataAddress(),
       systemProgram: SystemProgram.programId,
+    })
+    .instruction()
+}
+
+/** Upgrade authority only: set the oracle, treasury and fees. Pass the current values to keep them. */
+export function updateConfigIx(
+  program: QuestProgram,
+  a: { admin: Key; authority: Key; treasury: Key; feeBps: number; burnBps: number },
+) {
+  return program.methods
+    .updateConfig(a.feeBps, a.burnBps)
+    .accountsStrict({
+      config: configPda(),
+      treasury: key(a.treasury),
+      authority: key(a.authority),
+      admin: key(a.admin),
+      program: PROGRAM_ID,
+      programData: programDataAddress(),
     })
     .instruction()
 }
