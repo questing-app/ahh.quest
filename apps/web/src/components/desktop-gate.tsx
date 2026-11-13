@@ -57,7 +57,7 @@ export function DesktopGate() {
             </span>
             <div className="min-w-0">
               <p className="tabular truncate text-[16px] font-semibold leading-snug">Paid 1,000 QUEST</p>
-              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Shave one eyebrow. Just the one</p>
+              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Shave off one eyebrow</p>
             </div>
           </div>
 
@@ -91,9 +91,9 @@ export function DesktopGate() {
 }
 
 const SAMPLE = [
-  { art: 'pepper', reward: '1,500', pill: '6h left', soon: true, dare: "Eat the world's hottest pepper. Whole thing, chew it. No milk for 5 minutes.", who: 'dustin_', ago: '2h ago' },
-  { art: 'dog', reward: '600', pill: '3 days', soon: false, dare: 'walk around all day like a dog. all fours, in public. you can stand up to cross the street', who: 'mara.k', ago: '5h ago' },
-  { art: 'wheelie', reward: '800', pill: '2 days', soon: false, dare: "WHEELIE PAST A COP. on a kid's bike. eye contact the whole time", who: 'bigstevo', ago: '1d ago' },
+  { art: 'pepper', reward: '1,500', pill: '6h left', soon: true, dare: "Eat the world's hottest pepper. No milk for 5 minutes.", who: 'dustin_', ago: '2h ago' },
+  { art: 'dog', reward: '600', pill: '3 days', soon: false, dare: 'Walk around all day like a dog. On all fours, in public.', who: 'mara.k', ago: '5h ago' },
+  { art: 'wheelie', reward: '800', pill: '2 days', soon: false, dare: "Do a wheelie on a kid's bike in front of a cop.", who: 'bigstevo', ago: '1d ago' },
 ]
 
 const TABS = [

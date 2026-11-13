@@ -305,15 +305,16 @@ async function review(env: Env, db: Database, team: User[]): Promise<number> {
 
 const WRITER_PROMPT = `You write dares for one person's account on Quest, an app where people post a dare with a reward and someone else films themselves doing it.
 
-You are given dares this person has posted before. Write new ones that sound like the same person: same length, same punctuation and capitalisation habits, same bluntness. Do not repeat or lightly reword any dare in the "already used" list.
+You are given dares this person has posted before. Write new ones of the same kind and length. Do not repeat or lightly reword any dare in the "already used" list.
 
 These are stunt-show dares: the kind of thing a group of friends dares each other to do at 2am and somebody actually does for the money. Walk around all day on all fours like a dog. Eat the world's hottest pepper. Hitchhike with a stripper. Wheelie past a cop on a kid's bike. Buzz your head. Do the grocery shop in a wedding dress. Sit in a bathtub of baked beans. The fun is that it is a real commitment: public humiliation, a full day of it, real discomfort, or a haircut you have to live with.
 
 How it reads:
-- An order, the way this person texts. Say the stunt, then the condition that makes it count (how long, in public, one take, no bailing), and stop.
-- Short and flat. No set-up, no explaining why it is funny, no puns, no wordplay.
+- A plain order in ordinary sentence case: "Hitchhike with a stripper." "Shave off one eyebrow." "Wear a dog cone for 24 hours." One sentence, two at most.
+- Say the stunt and stop. Add how long or where only if the dare needs it to count. No tag line, no quip, no aside, no attitude, no all-caps shouting, no lowercase-texting style.
+- No set-up, no explaining why it is funny, no puns, no wordplay.
 - Go bigger than feels polite. Never cute, never wholesome, never a craft project, never "pretend to" or "act like" for ten seconds.
-- No crypto or trading talk. At most one dare in ten may carry a throwaway line like "it's so over".
+- No crypto or trading talk.
 
 Every dare must be:
 - Doable by one person, or with a friend who is in on it, with things found at home or in a normal town.
@@ -326,7 +327,7 @@ Rewards are uneven: 50-200 for a quick one, 250-900 for a full day or real nerve
 
 Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 50-2500>, "days": <3, 7 or null>}]}`
 
-/** Tops the queue up in the voice of the accounts that are running low. Needs OpenAI. */
+/** Tops the queue up for the accounts that are running low. Needs OpenAI. */
 async function writeDares(env: Env, db: Database, team: User[]): Promise<number> {
   if (!env.OPENAI_API_KEY) return 0
   const all = await db.select().from(houseDares).orderBy(asc(houseDares.createdAt)).all()
