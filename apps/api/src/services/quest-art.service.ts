@@ -3,52 +3,74 @@ import { quests } from '../db/schema'
 import type { Database } from '../db/client'
 import type { Env } from '../types'
 
-// Every quest gets a featured picture: the dare, acted out badly by the wizard
-// from the app's own illustrations. Two steps: a small model turns the dare
-// into one safe, funny scene, then the image model paints it, with one of the
-// app's illustrations attached so the characters and the linework match.
+// Every quest gets a featured picture: the dare, caught on a trail camera with
+// the wizard doing it. Two steps: a small model turns the dare into one scene,
+// then the image model shoots it, with one of our own trail-cam pictures
+// attached so the wizard and the camera quality match.
 
-/** How every picture is drawn. Matches apps/web/public/art. */
+/** How every picture is shot. */
 export const ART_STYLE = [
-  'A hand-drawn storybook illustration in fine black ink linework with soft watercolour washes, drawn exactly like the attached reference: light cross-hatching, a muted natural palette (moss and fir greens, warm ochre, slate blue, rust red) on warm cream paper.',
-  'Setting: the same old-growth forest world as the reference, with tall firs, ferns, mossy rocks and misty mountains far behind, in soft daylight.',
-  'Landscape 3:2. Paint the scene right out to all four edges: no vignette, no blank paper margin, no frame or border. Keep the two characters and the joke in the middle of the picture, with only scenery near the edges.',
+  'A real photograph taken by a cheap motion-triggered trail camera (game camera) strapped to a tree.',
+  'It must look like an actual found photo, not an illustration, render or film still: hyper-realistic people, animals and objects, but bad image quality: low resolution, heavy sensor noise and grain, JPEG compression blocks, soft focus, slight wide-angle barrel distortion, blown-out highlights close to the camera and light falling off fast into murky black, a little motion blur on whatever is moving.',
+  'Nobody posed for it: the subject is caught mid-act, off-centre, either unaware of the camera or staring straight into it.',
+  'Landscape 3:2, full frame to all four edges. No timestamp strip, no logo, no date, no temperature readout, no border.',
 ].join(' ')
+
+/** The light. One per picture, so the feed is not all one tint. */
+export const ART_LOOKS = [
+  'Night, infrared flash. Pure black-and-white greyscale, pale washed-out subject against a black forest, eyes of people and animals glowing white.',
+  'Night vision. Monochrome green, grainy, hot white centre and dark corners, eyes glowing bright.',
+  'Night, harsh white on-camera colour flash. Washed-out colours up close, red-eye, hard shadows, pitch black a few metres behind.',
+  'Night, cold blue-tinted flash, deep black background.',
+  'Overcast daytime, flat washed-out colour, slightly green-yellow cast, dull grey sky, a bit overexposed.',
+  'Dusk, last dim light, muddy underexposed colour with a brown-orange cast, very noisy shadows.',
+]
 
 /** The cast. They must look the same in every picture. */
 export const ART_CAST = [
-  'The wizard: a short old man with a long grey beard, a tall floppy pointed slate-blue hat and a slate-blue robe dotted with small gold stars, a rope belt and a gnarled wooden staff. He is always the one attempting the dare: earnest, far too confident, and bad at it.',
-  'The knight: full plate armour with a closed helmet (a visor slit, never a face) and a long rust-red cape. He never speaks and shows what he thinks with his body only: a hand over his visor, slumped shoulders, crossed arms, a slow head tilt.',
+  'The wizard is a classic storybook wizard photographed for real: a dignified old man with a long, full, well-kept white-grey beard and long hair, a tall pointed wizard hat with a wide brim and a long flowing grey-blue robe with wide sleeves, sometimes a wooden staff.',
+  'His robe and hat are clean and whole. He is a proper wizard and carries himself like one: never ragged, dirty, scruffy, homeless-looking or like a hermit or vagrant. He is always the one doing the dare, and the joke is a serious, dignified wizard caught doing something stupid.',
+  'If a knight appears he is a real person in polished steel plate armour with a closed helmet, never showing a face.',
 ].join(' ')
 
 /** What a picture may never contain, whatever the dare says. */
 export const ART_RULES = [
-  'It is gentle, good-natured slapstick and the wizard is the only butt of the joke.',
-  'Nobody is hurt and nothing bleeds; no fighting that lands, no weapons pointed at anyone, no animal harmed, frightened or in distress (animals are calm, unimpressed and clearly winning).',
-  'No real or recognisable people, no nudity or anything suggestive, no alcohol, smoking or drugs, nothing political or religious, no flags, no brands or logos.',
-  'No text of any kind: no letters, numbers, captions, speech bubbles, signs with writing, signatures or watermarks.',
+  'It should be funny because it looks like real evidence of a wizard doing something unhinged, completely straight-faced. Beer cans, bottles and cigarettes are fine where the scene calls for them.',
+  'No squalor: no trash heaps, no shacks, no rags.',
+  'No nudity, no gore or injuries, no animal being hurt, no recognisable real people or celebrities, no readable brand names or logos.',
+  'No readable text anywhere in the picture: labels and signs are blank, blurred or turned away.',
 ].join(' ')
 
 export function artPrompt(scene: string): string {
-  return `${ART_STYLE}\n\nCharacters: ${ART_CAST}\n\nThe scene: ${scene}\n\nRules: ${ART_RULES}`
+  // The same scene always gets the same light.
+  let n = 0
+  for (let i = 0; i < scene.length; i++) n = (n * 31 + scene.charCodeAt(i)) >>> 0
+  return [
+    'The attached image is only a reference for the camera quality and for what the wizard looks like; do not copy its composition, its setting or its colour tint.',
+    ART_STYLE,
+    `Look: ${ART_LOOKS[n % ART_LOOKS.length]}`,
+    `Who is in it: ${ART_CAST}`,
+    `The scene: ${scene}`,
+    `Rules: ${ART_RULES}`,
+  ].join('\n\n')
 }
 
-const SCENE_PROMPT = `You write the one scene for the featured illustration of a dare on Quest, an app where people post dares with a reward and others film themselves doing them.
+const SCENE_PROMPT = `You write the one scene for the featured picture of a dare on Quest, an app where people post dares with a reward and others film themselves doing them.
 
-The illustrations are storybook ink-and-watercolour pictures set in an old forest, with two recurring characters:
+The pictures look like real photos from a trail camera in the backwoods: grainy, badly lit, caught by accident. They star one recurring character:
 - ${ART_CAST}
 
-Given a dare, describe ONE frozen moment, in one or two sentences, that makes someone smile:
-- The wizard is attempting the dare himself, very seriously and not very well.
-- Whoever or whatever the dare involves (an animal, a stranger, an object) reacts with total deadpan, or the knight does. An animal just looks at him like he is an idiot.
-- Move modern things into the storybook world: a phone becomes a crystal ball, a car a hay cart, a supermarket a market stall, a stranger a passing villager seen from behind, a price chart a parchment with one jagged ink line and no numbers.
-- Say what each character is doing with their body and where they are looking. No dialogue, no text in the picture.
+Given a dare, describe ONE frozen moment, in two or three plain sentences, that looks like real evidence of a wizard doing something unhinged:
+- The wizard is doing the dare himself, fully committed, mid-act, and dead serious about it. He stays a proper wizard in a clean robe; the stupidity is in what he is doing.
+- Put it somewhere a trail camera or a cheap security camera would be: a campsite, a dirt road, a cabin porch, a gas station lot, a small-town main street, a backyard.
+- Add one thing that reacts or makes it worse: a bear, deer, raccoons, coyotes or a stray dog getting involved, or the knight helping badly.
+- Say what each one is doing with their body and where they are looking. Real, concrete objects. No dialogue, no text in the picture.
 
-Never offensive or in bad taste. ${ART_RULES}
+${ART_RULES}
 
-If the dare itself is dangerous, cruel, sexual, hateful, illegal, humiliates someone who has not agreed to it, or targets a real person or a group of people, do not show it at all. Instead describe the wizard reading the dare off a long scroll with his eyebrows up while the knight slowly shakes his head, and set "safe" to false.
+If the dare itself is cruel, sexual, hateful, involves a child, hurts an animal, humiliates someone who has not agreed to it, or targets a real person or a group of people, do not show it at all. Instead describe the wizard standing at the edge of the trees at night, holding a sheet of paper up to the camera flash and squinting at it, one eyebrow raised, and set "safe" to false.
 
-Reply with JSON: {"scene": "<one or two sentences>", "safe": true|false}`
+Reply with JSON: {"scene": "<two or three sentences>", "safe": true|false}`
 
 export async function openai(env: Env, path: string, init: RequestInit): Promise<Response> {
   const res = await fetch(`https://api.openai.com/v1${path}`, {
@@ -86,9 +108,9 @@ export async function sceneForDare(env: Env, description: string): Promise<strin
 
 let reference: Promise<Blob> | null = null
 
-/** One of the app's own illustrations, so the model copies the cast and the hand. */
+/** One of our own trail-cam pictures, so the model copies the wizard and the camera. */
 function referenceArt(env: Env): Promise<Blob> {
-  reference ??= fetch(`${env.WEB_URL}/art/posted.jpg`).then(async (res) => {
+  reference ??= fetch(`${env.WEB_URL}/art/trailcam.jpg`).then(async (res) => {
     if (!res.ok) throw new Error(`Reference art ${res.status}`)
     return res.blob()
   })
@@ -112,7 +134,10 @@ export async function paintScene(env: Env, scene: string): Promise<ArrayBuffer> 
 }
 
 // Pictures are stored by the dare's hash, so the same dare never gets painted twice.
-export const artKey = (descriptionHash: string) => `quests/${descriptionHash}.webp`
+// Media is served as immutable, so a new picture style gets a new folder: `tc` is
+// the trail-camera set (the storybook drawings sit one level up).
+export const ART_FOLDER = 'quests/tc/'
+export const artKey = (descriptionHash: string) => `${ART_FOLDER}${descriptionHash}.webp`
 
 export async function storeArt(env: Env, descriptionHash: string, body: ArrayBuffer, contentType = 'image/webp') {
   await env.R2.put(artKey(descriptionHash), body, { httpMetadata: { contentType } })

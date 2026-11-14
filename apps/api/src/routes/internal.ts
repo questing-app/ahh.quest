@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import type { Context, Next } from 'hono'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, ne, notLike, or } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { Env } from '../types'
 import { createDbClient } from '../db/client'
 import { quests, users } from '../db/schema'
 import { BadRequest, NotFound, Unauthorized } from '../lib/errors'
 import { StorageService } from '../services/storage.service'
-import { paintMissingArt, storeArt } from '../services/quest-art.service'
+import { ART_FOLDER, paintMissingArt, storeArt } from '../services/quest-art.service'
 import { clearHouse, houseUser, runHouse, seedHouse, type HouseSeed } from '../services/house.service'
 
 // Operator endpoints. Every call needs the internal key in x-internal-key.
@@ -41,7 +41,7 @@ async function imageBody(c: Context<{ Bindings: Env }>) {
 
 // PUT /api/internal/art/:hash
 // Stores the featured picture for a dare (by the hex sha256 of its text) and
-// attaches it to any quest with that dare that has no picture yet.
+// attaches it to every quest with that dare, replacing an older picture.
 internalRoutes.put('/art/:hash', async (c) => {
   const hash = c.req.param('hash')
   if (!/^[0-9a-f]{64}$/.test(hash)) throw new BadRequest('hash must be a hex sha256')
@@ -49,7 +49,7 @@ internalRoutes.put('/art/:hash', async (c) => {
   const url = await storeArt(c.env, hash, body, contentType)
   const db = createDbClient(c.env)
   const res = await db.update(quests).set({ imageUrl: url })
-    .where(and(eq(quests.descriptionHash, hash), isNull(quests.imageUrl)))
+    .where(and(eq(quests.descriptionHash, hash), or(isNull(quests.imageUrl), ne(quests.imageUrl, url))))
   return c.json({ url, attached: res.rowsAffected })
 })
 
@@ -59,11 +59,13 @@ internalRoutes.post('/art/paint', async (c) => {
   return c.json({ ok: true })
 })
 
-// GET /api/internal/art/missing — open quests with no picture.
+// GET /api/internal/art/missing — quests with no picture, or one in an older style.
 internalRoutes.get('/art/missing', async (c) => {
   const rows = await createDbClient(c.env)
     .select({ id: quests.id, description: quests.description, hash: quests.descriptionHash, status: quests.status })
-    .from(quests).where(isNull(quests.imageUrl)).all()
+    .from(quests)
+    .where(or(isNull(quests.imageUrl), notLike(quests.imageUrl, `%/${ART_FOLDER}%`)))
+    .all()
   return c.json(rows)
 })
 

@@ -303,22 +303,31 @@ async function review(env: Env, db: Database, team: User[]): Promise<number> {
 
 // ── Writing new dares ──────────────────────────
 
-const WRITER_PROMPT = `You write dares for one person's account on Quest, an app where people post a dare with a small reward and someone else films themselves doing it.
+const WRITER_PROMPT = `You write dares for one person's account on Quest, an app where people post a dare with a reward and someone else films themselves doing it.
 
-You are given dares this person has posted before. Write new ones that sound like the same person: same length, same punctuation and capitalisation habits, same sense of humour. Do not repeat or lightly reword any dare in the "already used" list.
+You are given dares this person has posted before. Write new ones of the same kind and length. Do not repeat or lightly reword any dare in the "already used" list.
 
-The people on Quest are crypto traders, and the dares are in-jokes for them. The usual joke is a piece of trader talk taken literally (buy the dip with an actual dip, diamond hands with ice cubes, a rug pull with a real rug, touching actual grass) or a trader's bad habit acted out at home (staring at charts, holding bags, explaining a loss to someone who did not ask). Slang like gm, wagmi, ngmi, ser, ape in, paper hands, bags, rugged, the floor, the chart and wen lambo is normal. Use it the way this person does in their examples, and not in every dare.
+These are stunt-show dares: the kind of thing a group of friends dares each other to do at 2am and somebody actually does for the money. Walk around all day on all fours like a dog. Eat the world's hottest pepper. Hitchhike with a stripper. Wheelie past a cop on a kid's bike. Buzz your head. Do the grocery shop in a wedding dress. Sit in a bathtub of baked beans. The fun is that it is a real commitment: public humiliation, a full day of it, real discomfort, or a haircut you have to live with.
+
+How it reads:
+- A plain order in ordinary sentence case: "Hitchhike with a stripper." "Shave off one eyebrow." "Wear a dog cone for 24 hours." One sentence, two at most.
+- Say the stunt and stop. Add how long or where only if the dare needs it to count. No tag line, no quip, no aside, no attitude, no all-caps shouting, no lowercase-texting style.
+- No set-up, no explaining why it is funny, no puns, no wordplay.
+- Go bigger than feels polite. Never cute, never wholesome, never a craft project, never "pretend to" or "act like" for ten seconds.
+- No crypto or trading talk.
 
 Every dare must be:
-- Something one person can film in under two minutes, alone or with a willing friend, with things most people have at home or in a normal town.
-- Harmless and legal. Nobody gets hurt, scared, tricked, filmed without agreeing, or embarrassed against their will. Nothing dangerous, nothing with food waste on a big scale, no trespassing, no driving, no heights, no alcohol or drugs, nothing sexual, political or religious, no real named people.
-- About the joke, never about money. No dare asks anyone to buy, sell, trade, bet, send, borrow or show a balance. No real coin, token, project, exchange or influencer is named. Nothing reads as advice or a price call.
-- Silly rather than mean. The person doing it is the only one who looks daft.
-- Under 140 characters. No hashtags, no emoji unless the examples use them.
+- Doable by one person, or with a friend who is in on it, with things found at home or in a normal town.
+- Survivable and legal. Pain, cold, spice, shame and bad hair are fine. Nothing that can put someone in hospital or in handcuffs: no eating challenges that choke or poison (cinnamon, milk gallons, speed eating, anything that is not food), no fire, heights, traffic, cars or motorbikes, jumping off things, fighting, weapons, alcohol or drugs, tattoos or piercings, trespassing, nothing sexual, political or religious.
+- At the expense of the person doing it. Strangers, staff and police can watch, be asked something harmless or choose to join in, but are never tricked, insulted, touched, pranked or filmed as the target. No real named people.
+- Not about money: nothing to buy, sell, trade, bet, send, borrow or show a balance, and no real brand, coin or influencer named.
+- Under 140 characters. No hashtags, no emoji.
 
-Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 25-500>, "days": <3, 7 or null>}]}`
+Rewards are uneven: 50-200 for a quick one, 250-900 for a full day or real nerve, 1000-2500 only for something that lasts (hair, eyebrow) or truly hurts, and at most one of those per batch.
 
-/** Tops the queue up in the voice of the accounts that are running low. Needs OpenAI. */
+Reply with JSON: {"dares": [{"text": "...", "reward": <whole number 50-2500>, "days": <3, 7 or null>}]}`
+
+/** Tops the queue up for the accounts that are running low. Needs OpenAI. */
 async function writeDares(env: Env, db: Database, team: User[]): Promise<number> {
   if (!env.OPENAI_API_KEY) return 0
   const all = await db.select().from(houseDares).orderBy(asc(houseDares.createdAt)).all()
@@ -380,7 +389,7 @@ async function writeDares(env: Env, db: Database, team: User[]): Promise<number>
       id: nanoid(),
       agent,
       description: d.text.trim(),
-      rewardAmount: Math.min(500, Math.max(25, Math.round(d.reward))) * 1_000_000,
+      rewardAmount: Math.min(2500, Math.max(25, Math.round(d.reward))) * 1_000_000,
       timeLimit: d.days === 3 || d.days === 7 ? d.days * 86400 : null,
       usedQuestId: null,
       createdAt: now(),
