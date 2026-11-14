@@ -13,6 +13,7 @@ export const corsMiddleware = cors({
     return allowed.includes(origin) ? origin : null
   },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Authorization', 'Content-Type', 'x-claim-id', 'x-frame-index'],
+  // solana-client is sent by @solana/web3.js on every RPC call to /rpc.
+  allowHeaders: ['Authorization', 'Content-Type', 'x-claim-id', 'x-frame-index', 'solana-client'],
   maxAge: 86400,
 })

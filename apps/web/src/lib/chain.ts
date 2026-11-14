@@ -8,7 +8,11 @@ import { PROGRAM_ERRORS, questProgram } from '@quest/sdk'
 import { useMe } from './queries'
 
 export const CLUSTER = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? 'devnet') as 'devnet' | 'mainnet-beta'
-export const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
+// The API's /rpc proxy keeps a paid RPC key off the browser. An explicit
+// NEXT_PUBLIC_SOLANA_RPC_URL still wins; with neither set, use public devnet.
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+export const RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? (API_URL ? `${API_URL.replace(/\/$/, '')}/rpc` : 'https://api.devnet.solana.com')
 
 export const connection = new Connection(RPC_URL, 'confirmed')
 export const program = questProgram(connection)
@@ -48,8 +52,7 @@ export function useSendTransaction() {
         // otherwise broadcast to whichever network they're set to.
         const signed = await wallet.signTransaction(tx)
         const signature = await connection.sendRawTransaction(signed.serialize())
-        const result = await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
-        if (result.value.err) throw new Error(JSON.stringify(result.value.err))
+        await confirmByPolling(signature, lastValidBlockHeight)
         return signature
       } catch (err) {
         throw new Error(transactionErrorMessage(err))
@@ -57,6 +60,23 @@ export function useSendTransaction() {
     },
     [wallet, address, connectWallet],
   )
+}
+
+/**
+ * Wait for 'confirmed' by polling, not a websocket subscription: the /rpc
+ * proxy is plain HTTP. Gives up once the blockhash can no longer land.
+ */
+async function confirmByPolling(signature: string, lastValidBlockHeight: number) {
+  for (;;) {
+    const { value } = await connection.getSignatureStatuses([signature])
+    const status = value[0]
+    if (status?.err) throw new Error(JSON.stringify(status.err))
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return
+    if ((await connection.getBlockHeight('confirmed')) > lastValidBlockHeight) {
+      throw new Error('Transaction expired: blockhash no longer valid')
+    }
+    await new Promise((r) => setTimeout(r, 1000))
+  }
 }
 
 const programErrors = new Map(PROGRAM_ERRORS.map((e) => [e.code, e.msg]))
