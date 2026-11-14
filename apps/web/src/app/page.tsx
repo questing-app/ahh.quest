@@ -11,6 +11,7 @@ import { QuestRow, questList } from '@/components/quest-row'
 import { Notice, SectionHeader } from '@/components/notice'
 import { SkeletonCards } from '@/components/skeleton'
 import { EmptyState } from '@/components/empty-state'
+import { ExampleQuests, examplesEnabled, EXAMPLES_BELOW } from '@/components/example-quests'
 import { button } from '@/components/button'
 import { useFeed, useMe, type FeedFilter } from '@/lib/queries'
 import { useSession } from '@/lib/session'
@@ -170,6 +171,9 @@ function Feed() {
   const forMeCount = authenticated ? (forMe.data?.pages.flat().length ?? 0) : 0
   const quests = data?.pages.flat() ?? []
   const searching = needle.length > 0
+  // A thin board on the main view gets sample dares after the real ones.
+  const showExamples =
+    examplesEnabled && !searching && filter === 'all' && !isPending && !error && !hasNextPage && quests.length < EXAMPLES_BELOW
 
   function cancelSearch() {
     setQuery('')
@@ -289,7 +293,7 @@ function Feed() {
           </div>
         ) : filter === 'mine' ? (
           <Notice>Nobody has posted a quest just for you yet. When they do, it shows up here.</Notice>
-        ) : (
+        ) : showExamples ? null : (
           <EmptyState
             art="/art/empty.jpg"
             title="The board is empty"
@@ -309,6 +313,8 @@ function Feed() {
           ))}
         </ul>
       )}
+
+      {showExamples && <ExampleQuests withHeading={quests.length === 0} />}
 
       {hasNextPage && (
         <div className="px-4">
