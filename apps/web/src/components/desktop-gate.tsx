@@ -51,25 +51,26 @@ export function DesktopGate() {
           </div>
           <div className="landing-ground" />
 
-          <div className="landing-card landing-card-left">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-moss-pale text-moss-deep">
-              <Check className="h-[18px] w-[18px]" strokeWidth={2.5} />
-            </span>
-            <div className="min-w-0">
-              <p className="tabular truncate text-[16px] font-semibold leading-snug">Paid 1,000 QUEST</p>
-              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Shave off one eyebrow</p>
+          {CARDS.map((card) => (
+            <div key={card.id} className={`landing-card landing-card-${card.id}`} style={{ background: card.bg, color: card.fg }}>
+              {card.art ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={card.art} alt="" className="h-11 w-11 shrink-0 rounded-[10px] object-cover" />
+              ) : (
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-black/15">
+                  {card.icon === 'check' ? (
+                    <Check className="h-5 w-5" strokeWidth={2.75} />
+                  ) : (
+                    <Play className="h-5 w-5" strokeWidth={2.75} />
+                  )}
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="tabular truncate text-[16px] font-semibold leading-snug">{card.title}</p>
+                <p className="mt-0.5 truncate text-[13px] font-medium leading-snug">{card.sub}</p>
+              </div>
             </div>
-          </div>
-
-          <div className="landing-card landing-card-right">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-night text-paper-raised">
-              <Play className="h-[18px] w-[18px]" strokeWidth={2.5} />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[16px] font-semibold leading-snug">Review kelpforest’s video</p>
-              <p className="mt-0.5 truncate text-[13px] leading-snug text-ink-soft">Approves itself in 22 h</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         <button
@@ -90,10 +91,20 @@ export function DesktopGate() {
   )
 }
 
+/** Floating cards around the phone. Each colour pair passes WCAG AA for its text. */
+const CARDS: { id: string; bg: string; fg: string; title: string; sub: string; art?: string; icon?: 'check' | 'play' }[] = [
+  { id: 'l1', bg: '#4A6B2A', fg: '#FFFFFF', icon: 'check', title: 'Paid 1,000 QUEST', sub: 'Shave off one eyebrow' },
+  { id: 'l2', bg: '#F2C14E', fg: '#26261F', art: '/art/examples/hotdog.webp', title: 'Hot dog costume all day', sub: '350 QUEST · 2 days left' },
+  { id: 'l3', bg: '#8CC7E8', fg: '#26261F', art: '/art/examples/mattress.webp', title: 'Take a mattress on the bus', sub: '250 QUEST · just posted' },
+  { id: 'r1', bg: '#26261F', fg: '#FFFFFF', icon: 'play', title: 'Review kelpforest’s video', sub: 'Approves itself in 22 h' },
+  { id: 'r2', bg: '#E86F51', fg: '#1F1A17', art: '/art/examples/cannon.webp', title: 'Cannonball in a full suit', sub: '200 QUEST · someone is on it' },
+  { id: 'r3', bg: '#F4A6C0', fg: '#26261F', art: '/art/examples/pink.webp', title: 'Dye your hair hot pink', sub: '800 QUEST · paid out' },
+]
+
 const SAMPLE = [
-  { art: 'pepper', reward: '1,500', pill: '6h left', soon: true, dare: "Eat the world's hottest pepper. No milk for 5 minutes.", who: 'dustin_', ago: '2h ago' },
-  { art: 'dog', reward: '600', pill: '3 days', soon: false, dare: 'Walk around all day like a dog. On all fours, in public.', who: 'mara.k', ago: '5h ago' },
-  { art: 'wheelie', reward: '800', pill: '2 days', soon: false, dare: "Do a wheelie on a kid's bike in front of a cop.", who: 'bigstevo', ago: '1d ago' },
+  { art: '/art/examples/clown.webp', reward: '400', pill: '6h left', soon: true, dare: 'Wear full clown makeup all day. Work included.', who: 'dustin_', ago: '2h ago' },
+  { art: '/art/feed/dog.webp', reward: '600', pill: '3 days', soon: false, dare: 'Walk around all day like a dog. On all fours, in public.', who: 'mara.k', ago: '5h ago' },
+  { art: '/art/feed/wheelie.webp', reward: '800', pill: '2 days', soon: false, dare: "Do a wheelie on a kid's bike in front of a cop.", who: 'bigstevo', ago: '1d ago' },
 ]
 
 const TABS = [
@@ -139,7 +150,7 @@ function PhoneScreen() {
           <li key={q.dare} className="overflow-hidden rounded-[16px] bg-paper-raised">
             <div className="relative aspect-[3/2] bg-paper-sunk">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/art/feed/${q.art}.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={q.art} alt="" className="absolute inset-0 h-full w-full object-cover" />
               <span
                 className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-none ${
                   q.soon ? 'bg-[#F3E3C4] text-[#6E4310]' : 'bg-paper-raised text-ink'

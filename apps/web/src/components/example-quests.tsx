@@ -21,7 +21,7 @@ const DRAFT_KEY = 'quest.post.draft'
 
 const EXAMPLES: { art: string; text: string }[] = [
   { art: 'dog', text: 'Walk around all day like a dog. On all fours, in public.' },
-  { art: 'pepper', text: "Eat the world's hottest pepper. No milk for 5 minutes." },
+  { art: 'shower', text: 'Take a cold shower fully clothed, shoes on.' },
   { art: 'clown', text: 'Wear full clown makeup all day. Work included.' },
   { art: 'wheelie', text: "Do a wheelie on a kid's bike in front of a cop." },
   { art: 'beans', text: 'Sit in a bathtub full of baked beans for 10 minutes.' },
