@@ -15,7 +15,7 @@ const TABS = [
 ]
 
 /** Screens that take over the whole display, like the camera. */
-const HIDDEN = [/^\/welcome/, /^\/q\/[^/]+\/record/]
+const HIDDEN = [/^\/welcome/, /^\/beta/, /^\/q\/[^/]+\/record/]
 
 export function TabBar() {
   const pathname = usePathname() ?? '/'

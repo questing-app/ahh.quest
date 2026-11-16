@@ -72,14 +72,13 @@ export function DesktopGate() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setDesktopApp(true)}
-          className="landing-cta group inline-flex h-[80px] items-center gap-3 rounded-full bg-moss px-12 text-[26px] font-bold text-paper-raised"
+        <a
+          href="/beta"
+          className="landing-cta group inline-flex h-[80px] items-center gap-3 whitespace-nowrap rounded-full bg-moss px-12 text-[26px] font-bold text-paper-raised"
         >
-          Open Quest
+          Request beta access
           <ArrowRight className="h-[26px] w-[26px] transition-transform group-hover:translate-x-1" strokeWidth={2.75} aria-hidden />
-        </button>
+        </a>
       </div>
 
       <button type="button" onClick={() => setDesktopApp(false)} className="desktop-back">

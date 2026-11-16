@@ -46,7 +46,8 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-const DESKTOP_MODE = `try{if(localStorage.getItem('${DESKTOP_KEY}')==='app')document.documentElement.dataset.desktop='app'}catch(e){}`
+// /beta is a plain page on every screen: no landing in front of it, no app column.
+const DESKTOP_MODE = `try{if(location.pathname.indexOf('/beta')===0)document.documentElement.dataset.route='beta';else if(localStorage.getItem('${DESKTOP_KEY}')==='app')document.documentElement.dataset.desktop='app'}catch(e){}`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

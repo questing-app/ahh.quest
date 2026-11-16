@@ -14,6 +14,7 @@ import { devRoutes } from './routes/dev'
 import { pushRoutes } from './routes/push'
 import { internalRoutes } from './routes/internal'
 import { rpcRoutes } from './routes/rpc'
+import { betaRoutes } from './routes/beta'
 import { processVerificationJob } from './services/verification.service'
 import { runCrank } from './cron/crank'
 import { ApiError } from './lib/errors'
@@ -39,6 +40,7 @@ app.route('/api/webhooks', webhookRoutes)
 app.route('/api/dev', devRoutes)
 app.route('/api/push', pushRoutes)
 app.route('/api/internal', internalRoutes)
+app.route('/api/beta-requests', betaRoutes)
 // Solana RPC proxy for the browser; has its own per-IP limit.
 app.route('/rpc', rpcRoutes)
 

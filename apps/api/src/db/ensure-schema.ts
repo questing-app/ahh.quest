@@ -1,5 +1,6 @@
 import { createClient } from '@libsql/client'
 import type { Env } from '../types'
+import { BETA_TABLE } from '../services/beta.service'
 
 // Additive columns added after the tables were created. Each runs once:
 // it checks the live table first, so restarts are no-ops.
@@ -45,7 +46,7 @@ export async function ensureSchema(env: Env) {
       console.log(`schema: added ${table}.${column}`)
     }
   }
-  for (const ddl of TABLES) await db.execute(ddl)
+  for (const ddl of [...TABLES, ...BETA_TABLE]) await db.execute(ddl)
   await checkNetwork(db, env)
 }
 

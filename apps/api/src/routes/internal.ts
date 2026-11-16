@@ -8,6 +8,7 @@ import { quests, users } from '../db/schema'
 import { BadRequest, NotFound, Unauthorized } from '../lib/errors'
 import { StorageService } from '../services/storage.service'
 import { ART_FOLDER, paintMissingArt, storeArt } from '../services/quest-art.service'
+import { betaClient, deleteBetaRequest, listBetaRequests, toCsv } from '../services/beta.service'
 import { clearHouse, houseUser, runHouse, seedHouse, type HouseSeed } from '../services/house.service'
 
 // Operator endpoints. Every call needs the internal key in x-internal-key.
@@ -97,4 +98,23 @@ internalRoutes.put('/house/:agent/avatar', async (c) => {
 internalRoutes.post('/house/run', async (c) => {
   const body = await c.req.json().catch(() => ({})) as { force?: boolean }
   return c.json(await runHouse(c.env, createDbClient(c.env), { force: body.force === true }))
+})
+
+// GET /api/internal/beta-requests[?format=csv] — every beta access request, newest first.
+internalRoutes.get('/beta-requests', async (c) => {
+  const rows = await listBetaRequests(betaClient(c.env))
+  if (c.req.query('format') === 'csv') {
+    return c.body(toCsv(rows), 200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="beta-requests.csv"',
+    })
+  }
+  return c.json(rows)
+})
+
+// DELETE /api/internal/beta-requests/:id
+internalRoutes.delete('/beta-requests/:id', async (c) => {
+  const removed = await deleteBetaRequest(betaClient(c.env), c.req.param('id'))
+  if (!removed) throw new NotFound('No such request')
+  return c.json({ ok: true })
 })
