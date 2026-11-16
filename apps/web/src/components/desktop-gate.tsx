@@ -76,10 +76,10 @@ export function DesktopGate() {
         <button
           type="button"
           onClick={() => setDesktopApp(true)}
-          className="landing-cta group inline-flex h-[54px] items-center gap-2 rounded-full bg-moss px-8 text-[17px] font-semibold text-paper-raised transition-colors hover:bg-moss-deep"
+          className="landing-cta group inline-flex h-[80px] items-center gap-3 rounded-full bg-moss px-12 text-[26px] font-bold text-paper-raised"
         >
           Open Quest
-          <ArrowRight className="h-[18px] w-[18px] transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} aria-hidden />
+          <ArrowRight className="h-[26px] w-[26px] transition-transform group-hover:translate-x-1" strokeWidth={2.75} aria-hidden />
         </button>
       </div>
 
