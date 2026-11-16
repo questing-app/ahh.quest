@@ -1,7 +1,15 @@
 'use client'
 
 import { useCallback } from 'react'
-import { Connection, PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  TransactionMessage,
+  VersionedTransaction,
+  type AddressLookupTableAccount,
+  type TransactionInstruction,
+} from '@solana/web3.js'
 import { usePrivy } from '@privy-io/react-auth'
 import { useSolanaWallets } from '@privy-io/react-auth/solana'
 import { PROGRAM_ERRORS, questProgram } from '@quest/sdk'
@@ -29,13 +37,29 @@ export function useWallet() {
   return { wallet, address: me?.pubkey ?? null }
 }
 
+/** Fetch lookup tables by address; a missing table fails the send rather than silently growing it. */
+export async function loadLookupTables(addresses: string[]): Promise<AddressLookupTableAccount[]> {
+  return Promise.all(
+    addresses.map(async (address) => {
+      const { value } = await connection.getAddressLookupTable(new PublicKey(address))
+      if (!value) throw new Error('A swap route table could not be loaded. Try again.')
+      return value
+    }),
+  )
+}
+
+export type SendOptions = {
+  /** Build a v0 transaction using these tables (needed for swap routes); otherwise a legacy one. */
+  lookupTables?: AddressLookupTableAccount[]
+}
+
 /** Sign and send instructions with the user's wallet, then wait for confirmation. */
 export function useSendTransaction() {
   const { wallet, address } = useWallet()
   const { connectWallet } = usePrivy()
 
   return useCallback(
-    async (instructions: TransactionInstruction[]) => {
+    async (instructions: TransactionInstruction[], options: SendOptions = {}) => {
       if (!wallet) {
         // An external wallet (Phantom etc.) isn't reconnected automatically; ask for it now.
         if (address) {
@@ -45,8 +69,15 @@ export function useSendTransaction() {
         throw new Error('Your wallet is still loading. Try again in a moment.')
       }
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
-      const tx = new Transaction({ feePayer: new PublicKey(wallet.address), blockhash, lastValidBlockHeight })
-      tx.add(...instructions)
+      const payer = new PublicKey(wallet.address)
+      let tx: Transaction | VersionedTransaction
+      if (options.lookupTables) {
+        const message = new TransactionMessage({ payerKey: payer, recentBlockhash: blockhash, instructions })
+        tx = new VersionedTransaction(message.compileToV0Message(options.lookupTables))
+      } else {
+        tx = new Transaction({ feePayer: payer, blockhash, lastValidBlockHeight })
+        tx.add(...instructions)
+      }
       try {
         // Sign only, then send ourselves: external wallets like Phantom would
         // otherwise broadcast to whichever network they're set to.
@@ -83,6 +114,11 @@ const programErrors = new Map(PROGRAM_ERRORS.map((e) => [e.code, e.msg]))
 
 export function transactionErrorMessage(err: unknown): string {
   const text = err instanceof Error ? `${err.message} ${(err as { logs?: string[] }).logs?.join(' ') ?? ''}` : String(err)
+
+  // Swap failures carry Jupiter's own error codes, which overlap the Quest program's.
+  if (/SlippageToleranceExceeded|Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 failed/i.test(text)) {
+    return 'The price moved before your swap went through. Try again.'
+  }
 
   const custom = text.match(/custom program error: (0x[0-9a-f]+)/i) ?? text.match(/"Custom":(\d+)/)
   if (custom) {

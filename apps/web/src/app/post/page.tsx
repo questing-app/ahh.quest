@@ -9,11 +9,30 @@ import { TAB_BAR_SPACE } from '@/components/tab-bar'
 import { SectionHeader, groupedList } from '@/components/notice'
 import { Segmented } from '@/components/segmented'
 import { button } from '@/components/button'
-import { createQuestIx, fetchConfig, sha256 } from '@quest/sdk'
+import {
+  HIGH_PRICE_IMPACT_PCT,
+  composeSwapThen,
+  createQuestIx,
+  fetchConfig,
+  questMemoIx,
+  quoteSolToToken,
+  sha256,
+  swapInstructions,
+} from '@quest/sdk'
+import { useFundWallet } from '@privy-io/react-auth/solana'
 import { useApi, useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
-import { CLUSTER, program, useSendTransaction, useWallet } from '@/lib/chain'
-import { useTokenBalance } from '@/components/token-balance'
+import { CLUSTER, loadLookupTables, program, useSendTransaction, useWallet } from '@/lib/chain'
+import { useSolBalance, useTokenBalance } from '@/components/token-balance'
+import {
+  LAMPORTS_PER_SOL,
+  SLIPPAGE_BPS,
+  SOL_PAY_ENABLED,
+  SOL_RESERVE_LAMPORTS,
+  formatSol,
+  toLamports,
+  useSolQuote,
+} from '@/lib/swap'
 import { useOnline } from '@/lib/network'
 import type { Quest } from '@/lib/types'
 import { MIN_REWARD_UNITS, TOKENS, feeFor, formatUnits, shortAddress, toUnits } from '@/lib/tokens'
@@ -22,9 +41,13 @@ const STEPS = ['Challenge', 'Reward', 'Who and when', 'Review'] as const
 const HEADINGS = ['What do they have to do?', 'What’s it worth?', 'Who can take it?', 'Ready to post?']
 const DRAFT_KEY = 'quest.post.draft'
 
+type PayWith = 'quest' | 'sol'
+
 type Draft = {
   description: string
   amount: string
+  payWith?: PayWith
+  solAmount?: string
   questType: 'open' | 'direct'
   target: string
   timeLimit: number | null
@@ -57,6 +80,7 @@ const IDEAS = [
 ]
 
 const QUICK_AMOUNTS = ['10', '25', '50', '100']
+const QUICK_SOL = ['0.05', '0.1', '0.25', '0.5']
 
 const chip =
   'press rounded-full border border-[#D8CDB3] bg-paper-raised px-3 py-[7px] text-[13px] leading-none whitespace-nowrap'
@@ -81,6 +105,8 @@ export default function PostQuestPage() {
   const [step, setStep] = useState(0)
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
+  const [payWith, setPayWith] = useState<PayWith>('quest')
+  const [solAmount, setSolAmount] = useState('')
   const [questType, setQuestType] = useState<'open' | 'direct'>('open')
   const [target, setTarget] = useState('')
   const [timeLimit, setTimeLimit] = useState<number | null>(null)
@@ -92,6 +118,8 @@ export default function PostQuestPage() {
     const draft = readDraft()
     if (draft.description) setDescription(draft.description)
     if (draft.amount) setAmount(draft.amount)
+    if (draft.payWith === 'sol' && SOL_PAY_ENABLED) setPayWith('sol')
+    if (draft.solAmount) setSolAmount(draft.solAmount)
     if (draft.questType) setQuestType(draft.questType)
     if (draft.target) setTarget(draft.target)
     if (draft.timeLimit !== undefined) setTimeLimit(draft.timeLimit)
@@ -99,23 +127,62 @@ export default function PostQuestPage() {
   }, [])
   useEffect(() => {
     if (!restored) return
-    const empty = !description && !amount && !target && questType === 'open' && timeLimit === null
-    writeDraft(empty ? null : { description, amount, questType, target, timeLimit })
-  }, [restored, description, amount, questType, target, timeLimit])
+    const empty = !description && !amount && !solAmount && !target && questType === 'open' && timeLimit === null
+    writeDraft(empty ? null : { description, amount, payWith, solAmount, questType, target, timeLimit })
+  }, [restored, description, amount, payWith, solAmount, questType, target, timeLimit])
 
-  const [phase, setPhase] = useState<'idle' | 'checking' | 'funding' | 'signing' | 'saving'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'funding' | 'quoting' | 'signing' | 'saving'>('idle')
   const sendTransaction = useSendTransaction()
   const { address } = useWallet()
   const balance = useTokenBalance()
+  const solBalance = useSolBalance()
   const online = useOnline()
+  const { fundWallet } = useFundWallet()
+  const [fundError, setFundError] = useState<string | null>(null)
 
   const token = TOKENS[0]
-  const units = toUnits(amount, token.decimals)
+  const paySol = SOL_PAY_ENABLED && payWith === 'sol'
+  const lamports = toLamports(solAmount)
+  const solQuote = useSolQuote(lamports, paySol)
+  // Paying in SOL locks the least the swap can return, so the escrow is always fully funded.
+  const units = paySol ? solQuote.minimum : toUnits(amount, token.decimals)
   const minimum = `${formatUnits(MIN_REWARD_UNITS, token.decimals)} ${token.symbol}`
+  const solNeeded = lamports === null ? null : lamports + SOL_RESERVE_LAMPORTS
+  const solShort =
+    paySol && solNeeded !== null && solBalance.data !== undefined && solBalance.data < solNeeded
+      ? solNeeded - solBalance.data
+      : 0
+  const highImpact = paySol && (solQuote.impact ?? 0) > HIGH_PRICE_IMPACT_PCT
+
+  async function addSol() {
+    if (!address) return
+    setFundError(null)
+    try {
+      // Round the top-up up to a tidy amount so the card minimum isn't a surprise.
+      const sol = Math.max(Math.ceil((solShort / LAMPORTS_PER_SOL) * 1000) / 1000, 0.01)
+      await fundWallet(address, { cluster: { name: 'mainnet-beta' }, amount: String(sol) })
+    } catch {
+      setFundError('Adding SOL didn’t work. Try again, or send SOL to your wallet.')
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['balance', 'sol'] })
+    }
+  }
 
   const problems: (string | null)[] = [
     description.trim().length < 10 ? 'Describe the challenge in at least a few words.' : null,
-    units === null
+    paySol
+      ? lamports === null
+        ? 'Enter how much SOL to spend, like 0.1.'
+        : solQuote.isError
+          ? 'Couldn’t get a price for QUEST right now. Try again in a moment.'
+          : units === null
+            ? 'Getting a price…'
+            : units < MIN_REWARD_UNITS
+              ? `That buys less than the smallest reward, ${minimum}.`
+              : solShort > 0
+                ? `You need ${formatSol(solShort)} more SOL, including network fees.`
+                : null
+      : units === null
       ? 'Enter an amount, like 25 or 0.5.'
       : units < MIN_REWARD_UNITS
         ? `The smallest reward is ${minimum}.`
@@ -141,10 +208,23 @@ export default function PostQuestPage() {
 
       // Testing on devnet: mint whatever test QUEST is missing instead of blocking.
       const held = balance.data ?? 0
-      if (CLUSTER === 'devnet' && units > held) {
+      if (!paySol && CLUSTER === 'devnet' && units > held) {
         setPhase('funding')
         await api('/api/dev/faucet', { json: { amount: units - held } })
         await queryClient.invalidateQueries({ queryKey: ['balance'] })
+      }
+
+      // A fresh quote: the one on screen may be stale. The reward is whatever the
+      // swap is guaranteed to return; if it can't, the whole transaction fails.
+      let swap: Awaited<ReturnType<typeof swapInstructions>> | null = null
+      let reward = units
+      if (paySol) {
+        if (lamports === null) throw new Error('Enter how much SOL to spend.')
+        setPhase('quoting')
+        const quote = await quoteSolToToken({ outputMint: token.mint, lamports, slippageBps: SLIPPAGE_BPS })
+        reward = Number(quote.otherAmountThreshold)
+        if (reward < MIN_REWARD_UNITS) throw new Error(`That buys less than the smallest reward, ${minimum}.`)
+        swap = await swapInstructions({ quote, user: address })
       }
 
       setPhase('signing')
@@ -155,12 +235,18 @@ export default function PostQuestPage() {
         creator: address,
         questId,
         mint: token.mint,
-        rewardAmount: units,
+        rewardAmount: reward,
         target: questType === 'direct' ? target.trim() : null,
         timeLimit: timeLimit ? Math.floor(Date.now() / 1000) + timeLimit * 3600 : null,
         descriptionHash: await sha256(text),
       })
-      const txSignature = await sendTransaction([ix])
+      let txSignature: string
+      if (swap) {
+        const { instructions, lookupTables } = composeSwapThen(swap, [ix, questMemoIx()])
+        txSignature = await sendTransaction(instructions, { lookupTables: await loadLookupTables(lookupTables) })
+      } else {
+        txSignature = await sendTransaction([ix, questMemoIx()])
+      }
 
       setPhase('saving')
       return api<Quest>('/api/quests', {
@@ -171,6 +257,7 @@ export default function PostQuestPage() {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['mine'] })
       queryClient.invalidateQueries({ queryKey: ['balance'] })
+      queryClient.invalidateQueries({ queryKey: ['balance', 'sol'] })
       writeDraft(null)
       router.replace(`/q/${quest.id}?posted=1`)
     },
@@ -281,7 +368,120 @@ export default function PostQuestPage() {
           </div>
         )}
 
-        {step === 1 && (
+        {step === 1 && SOL_PAY_ENABLED && (
+          <Segmented
+            label="Pay with"
+            className="mx-4 mt-4"
+            value={payWith}
+            onChange={setPayWith}
+            options={[
+              { id: 'quest', label: `Pay with ${token.symbol}` },
+              { id: 'sol', label: 'Pay with SOL' },
+            ]}
+          />
+        )}
+
+        {step === 1 && paySol && (
+          <>
+            <div className="px-4">
+              <label htmlFor="sol-amount" className="sr-only">
+                SOL to spend
+              </label>
+              <div className="flex items-baseline justify-center gap-2 pb-1 pt-5">
+                <input
+                  id="sol-amount"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={solAmount}
+                  onChange={(e) => setSolAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="0"
+                  size={Math.max(1, solAmount.length)}
+                  className="tabular min-w-[1ch] max-w-full bg-transparent text-center font-display text-[56px] leading-none text-moss placeholder:text-ink/20 focus:outline-none"
+                />
+                <span className="text-[18px] font-semibold text-moss">SOL</span>
+              </div>
+              <p className="tabular text-center text-[14px] text-ink-soft">
+                {solBalance.data === undefined ? '\u00a0' : `You have ${formatSol(solBalance.data)} SOL`}
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-[7px]">
+                {QUICK_SOL.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={solAmount === value}
+                    onClick={() => setSolAmount(value)}
+                    className={`tabular ${solAmount === value ? chipOn : chip}`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <dl className={`${groupedList} tabular mt-5`} aria-live="polite">
+              <div className={line}>
+                <dt>
+                  Buys about
+                  <span className="block text-[13px] text-ink-soft">Swapped on Jupiter as you post</span>
+                </dt>
+                <dd className="shrink-0 whitespace-nowrap text-right text-ink-soft">
+                  {solQuote.estimated !== null ? `${formatUnits(solQuote.estimated, token.decimals)} ${token.symbol}` : '—'}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>
+                  Reward, locked up
+                  <span className="block text-[13px] text-ink-soft">
+                    The least the swap can return, {SLIPPAGE_BPS / 100}% under the estimate. Anything over stays in your wallet.
+                  </span>
+                </dt>
+                <dd className="shrink-0 whitespace-nowrap text-right font-semibold">
+                  {units !== null ? `${formatUnits(units, token.decimals)} ${token.symbol}` : '—'}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>Price impact</dt>
+                <dd className={`text-right ${highImpact ? 'font-semibold text-wax' : 'text-ink-soft'}`}>
+                  {solQuote.impact !== null ? `${solQuote.impact < 0.01 ? '<0.01' : solQuote.impact.toFixed(2)}%` : '—'}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>
+                  Quest fee, 2.5%
+                  <span className="block text-[13px] text-ink-soft">Comes out of the reward when it’s paid</span>
+                </dt>
+                <dd className="shrink-0 whitespace-nowrap text-right text-ink-soft">
+                  {formatUnits(fee, token.decimals)} {token.symbol}
+                </dd>
+              </div>
+              <div className={line}>
+                <dt>Network fee and account rent</dt>
+                <dd className="text-right text-ink-soft">up to {formatSol(SOL_RESERVE_LAMPORTS)} SOL</dd>
+              </div>
+            </dl>
+
+            {highImpact && (
+              <p role="alert" className="mx-4 mt-3 rounded-[14px] border border-wax/30 bg-wax/10 px-4 py-3 text-[13px] leading-[1.45] text-wax">
+                This buy moves the price by {solQuote.impact!.toFixed(1)}%, so you get noticeably less QUEST per SOL. A
+                smaller amount trades closer to the market price.
+              </p>
+            )}
+
+            {solShort > 0 && (
+              <div className="mx-4 mt-3 rounded-[14px] border border-rule bg-paper-raised px-4 py-3">
+                <p className="text-[14px] leading-[1.45]">
+                  You need {formatSol(solShort)} more SOL for this. Add it with a card or Apple Pay, then carry on.
+                </p>
+                <button type="button" onClick={addSol} className={`${button('outline')} mt-3 w-full`}>
+                  Add SOL with card
+                </button>
+                {fundError && <p className="pt-2 text-[13px] text-wax">{fundError}</p>}
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 1 && !paySol && (
           <>
             <div className="px-4">
               <label htmlFor="amount" className="sr-only">
@@ -417,6 +617,7 @@ export default function PostQuestPage() {
 
             <dl className={`${groupedList} tabular mt-3`}>
               <Summary label="Reward" onEdit={() => setStep(1)}>
+                {paySol ? 'At least ' : ''}
                 {formatUnits(units, token.decimals)} {token.symbol}
               </Summary>
               <Summary label="Who" onEdit={() => setStep(2)}>
@@ -433,7 +634,9 @@ export default function PostQuestPage() {
                   </span>
                 </dt>
                 <dd className="shrink-0 text-right font-semibold">
-                  {formatUnits(units, token.decimals)} {token.symbol}
+                  {paySol && lamports !== null
+                    ? `${formatSol(lamports)} SOL`
+                    : `${formatUnits(units, token.decimals)} ${token.symbol}`}
                 </dd>
               </div>
             </dl>
@@ -466,13 +669,17 @@ export default function PostQuestPage() {
               ? 'You’re offline'
               : phase === 'checking'
               ? 'Checking your quest…'
+              : phase === 'quoting'
+                ? 'Getting the latest price…'
               : phase === 'funding'
                 ? 'Adding test QUEST…'
                 : phase === 'signing'
                 ? 'Confirm in your wallet…'
                 : post.isPending
                   ? 'Posting…'
-                  : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
+                  : paySol && lamports !== null
+                    ? `Pay ${formatSol(lamports)} SOL and post`
+                    : `Post and lock ${formatUnits(units ?? 0, token.decimals)} ${token.symbol}`}
         </button>
         {step === STEPS.length - 1 && (
           <p className="pt-1.5 text-center text-[12px] text-ink-soft">Your wallet will ask you to confirm</p>
