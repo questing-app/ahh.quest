@@ -74,10 +74,10 @@ export function DesktopGate() {
 
         <a
           href="/beta"
-          className="landing-cta group inline-flex h-[80px] items-center gap-3 whitespace-nowrap rounded-full bg-moss px-12 text-[26px] font-bold text-paper-raised"
+          className="landing-cta group inline-flex h-[70px] items-center gap-2.5 whitespace-nowrap rounded-full bg-moss px-10 text-[23px] font-bold text-paper-raised"
         >
           Request beta access
-          <ArrowRight className="h-[26px] w-[26px] transition-transform group-hover:translate-x-1" strokeWidth={2.75} aria-hidden />
+          <ArrowRight className="h-[23px] w-[23px] transition-transform group-hover:translate-x-1" strokeWidth={2.75} aria-hidden />
         </a>
       </div>
 
