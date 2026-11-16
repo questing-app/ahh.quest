@@ -72,70 +72,20 @@ pub mod quest {
         time_limit: Option<i64>,
         description_hash: [u8; 32],
     ) -> Result<()> {
-        require!(reward_amount >= MIN_REWARD, QuestError::RewardTooLow);
-        // The escrow holds exactly one reward, so only one attempt can be live at a time.
-        require!(max_claimers == 1, QuestError::InvalidMaxClaimers);
+        create_quest_handler(ctx, reward_amount, quest_type, target, max_claimers, time_limit, description_hash)
+    }
 
-        if quest_type == QuestType::Direct {
-            let t = target.ok_or(QuestError::DirectQuestNeedsTarget)?;
-            require!(t != ctx.accounts.creator.key(), QuestError::CannotTargetSelf);
-        }
-
-        if let Some(limit) = time_limit {
-            require!(
-                limit > Clock::get()?.unix_timestamp,
-                QuestError::InvalidTimeLimit
-            );
-        }
-
-        let config = &mut ctx.accounts.config;
-        let quest = &mut ctx.accounts.quest;
-
-        quest.id = config.quest_count;
-        quest.creator = ctx.accounts.creator.key();
-        quest.escrow = ctx.accounts.escrow.key();
-        quest.reward_mint = ctx.accounts.reward_mint.key();
-        quest.reward_amount = reward_amount;
-        quest.quest_type = quest_type;
-        quest.status = QuestStatus::Active;
-        quest.target = target;
-        quest.max_claimers = max_claimers;
-        quest.current_claimers = 0;
-        quest.time_limit = time_limit;
-        quest.proof_deadline_hours = DEFAULT_PROOF_DEADLINE_HOURS;
-        quest.review_deadline_hours = DEFAULT_REVIEW_DEADLINE_HOURS;
-        quest.description_hash = description_hash;
-        quest.created_at = Clock::get()?.unix_timestamp;
-        quest.bump = ctx.bumps.quest;
-
-        config.quest_count = config.quest_count
-            .checked_add(1)
-            .ok_or(QuestError::Overflow)?;
-
-        token_interface::transfer_checked(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                TransferChecked {
-                    from: ctx.accounts.creator_token_account.to_account_info(),
-                    mint: ctx.accounts.reward_mint.to_account_info(),
-                    to: ctx.accounts.escrow.to_account_info(),
-                    authority: ctx.accounts.creator.to_account_info(),
-                },
-            ),
-            reward_amount,
-
-            ctx.accounts.reward_mint.decimals,
-        )?;
-
-        emit!(QuestCreated {
-            quest_id: quest.id,
-            creator: quest.creator,
-            reward_amount,
-            reward_mint: quest.reward_mint,
-            quest_type,
-        });
-
-        Ok(())
+    /// Same as create_quest under the name explorers show for a quest post.
+    pub fn questing(
+        ctx: Context<CreateQuest>,
+        reward_amount: u64,
+        quest_type: QuestType,
+        target: Option<Pubkey>,
+        max_claimers: u8,
+        time_limit: Option<i64>,
+        description_hash: [u8; 32],
+    ) -> Result<()> {
+        create_quest_handler(ctx, reward_amount, quest_type, target, max_claimers, time_limit, description_hash)
     }
 
     pub fn claim_quest(
@@ -686,6 +636,81 @@ fn split_fee<'info>(
 
     Ok(())
 }
+fn create_quest_handler(
+    ctx: Context<CreateQuest>,
+    reward_amount: u64,
+    quest_type: QuestType,
+    target: Option<Pubkey>,
+    max_claimers: u8,
+    time_limit: Option<i64>,
+    description_hash: [u8; 32],
+) -> Result<()> {
+    require!(reward_amount >= MIN_REWARD, QuestError::RewardTooLow);
+    // The escrow holds exactly one reward, so only one attempt can be live at a time.
+    require!(max_claimers == 1, QuestError::InvalidMaxClaimers);
+
+    if quest_type == QuestType::Direct {
+        let t = target.ok_or(QuestError::DirectQuestNeedsTarget)?;
+        require!(t != ctx.accounts.creator.key(), QuestError::CannotTargetSelf);
+    }
+
+    if let Some(limit) = time_limit {
+        require!(
+            limit > Clock::get()?.unix_timestamp,
+            QuestError::InvalidTimeLimit
+        );
+    }
+
+    let config = &mut ctx.accounts.config;
+    let quest = &mut ctx.accounts.quest;
+
+    quest.id = config.quest_count;
+    quest.creator = ctx.accounts.creator.key();
+    quest.escrow = ctx.accounts.escrow.key();
+    quest.reward_mint = ctx.accounts.reward_mint.key();
+    quest.reward_amount = reward_amount;
+    quest.quest_type = quest_type;
+    quest.status = QuestStatus::Active;
+    quest.target = target;
+    quest.max_claimers = max_claimers;
+    quest.current_claimers = 0;
+    quest.time_limit = time_limit;
+    quest.proof_deadline_hours = DEFAULT_PROOF_DEADLINE_HOURS;
+    quest.review_deadline_hours = DEFAULT_REVIEW_DEADLINE_HOURS;
+    quest.description_hash = description_hash;
+    quest.created_at = Clock::get()?.unix_timestamp;
+    quest.bump = ctx.bumps.quest;
+
+    config.quest_count = config.quest_count
+        .checked_add(1)
+        .ok_or(QuestError::Overflow)?;
+
+    token_interface::transfer_checked(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            TransferChecked {
+                from: ctx.accounts.creator_token_account.to_account_info(),
+                mint: ctx.accounts.reward_mint.to_account_info(),
+                to: ctx.accounts.escrow.to_account_info(),
+                authority: ctx.accounts.creator.to_account_info(),
+            },
+        ),
+        reward_amount,
+
+        ctx.accounts.reward_mint.decimals,
+    )?;
+
+    emit!(QuestCreated {
+        quest_id: quest.id,
+        creator: quest.creator,
+        reward_amount,
+        reward_mint: quest.reward_mint,
+        quest_type,
+    });
+
+    Ok(())
+}
+
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {

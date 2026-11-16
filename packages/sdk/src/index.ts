@@ -182,13 +182,17 @@ export async function createQuestIx(
     /** Unix seconds after which the quest can no longer be claimed. */
     timeLimit?: number | null
     descriptionHash: number[]
+    /**
+     * `questing` is the same instruction under the name explorers show. Only
+     * use it once the deployed program has it.
+     */
+    instruction?: 'createQuest' | 'questing'
   },
 ) {
   const quest = questPda(a.questId)
   const tp = await tokenProgramFor(program, a.mint)
   const target = a.target ? key(a.target) : null
-  return program.methods
-    .createQuest(
+  return program.methods[a.instruction ?? 'createQuest'](
       bn(a.rewardAmount),
       target ? { direct: {} } : { open: {} },
       target,

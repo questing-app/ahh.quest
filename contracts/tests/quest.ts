@@ -358,6 +358,81 @@ describe("quest", () => {
       expect(escrowBal).to.equal(REWARD);
     });
 
+    it("questing creates the same quest as createQuest, logs Questing, and can be claimed", async () => {
+      const id = questCount;
+      const [questPda] = deriveQuestPda(id);
+      const [escrowPda] = deriveEscrowPda(questPda);
+      const balBefore = await getTokenBalance(creatorAta);
+
+      const sig = await program.methods
+        .questing(new BN(REWARD), { open: {} }, null, 1, null, descHash("questing: same as createQuest"))
+        .accounts({
+          config: configPda,
+          quest: questPda,
+          escrow: escrowPda,
+          rewardMint: mint,
+          creator: creator.publicKey,
+          creatorTokenAccount: creatorAta,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([creator])
+        .rpc({ commitment: "confirmed" });
+      questCount++;
+
+      const tx = await connection.getTransaction(sig, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+      expect(tx!.meta!.logMessages!.some((l) => l.includes("Instruction: Questing"))).to.equal(true);
+
+      const quest = await program.account.quest.fetch(questPda);
+      expect(quest.id.toNumber()).to.equal(id);
+      expect(quest.creator.toBase58()).to.equal(creator.publicKey.toBase58());
+      expect(quest.rewardAmount.toNumber()).to.equal(REWARD);
+      expect(quest.status).to.deep.equal({ active: {} });
+      expect(balBefore - (await getTokenBalance(creatorAta))).to.equal(REWARD);
+      expect(await getTokenBalance(escrowPda)).to.equal(REWARD);
+
+      const [claimPda] = deriveClaimPda(questPda, claimer.publicKey);
+      await program.methods
+        .claimQuest(new BN((REWARD * MIN_STAKE_BPS) / 10000))
+        .accounts({
+          quest: questPda,
+          claim: claimPda,
+          escrow: escrowPda,
+          claimer: claimer.publicKey,
+          claimerTokenAccount: claimerAta,
+          rewardMint: mint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([claimer])
+        .rpc();
+      expect((await program.account.quest.fetch(questPda)).currentClaimers).to.equal(1);
+    });
+
+    it("questing applies the same checks (reward minimum)", async () => {
+      const [questPda] = deriveQuestPda(questCount);
+      const [escrowPda] = deriveEscrowPda(questPda);
+      try {
+        await program.methods
+          .questing(new BN(1), { open: {} }, null, 1, null, descHash("too small"))
+          .accounts({
+            config: configPda,
+            quest: questPda,
+            escrow: escrowPda,
+            rewardMint: mint,
+            creator: creator.publicKey,
+            creatorTokenAccount: creatorAta,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([creator])
+          .rpc();
+        expect.fail("should have failed");
+      } catch (e: any) {
+        expect(e.toString()).to.include("RewardTooLow");
+      }
+    });
+
     it("creates a direct quest with a target", async () => {
       const id = questCount;
       const [questPda] = deriveQuestPda(id);

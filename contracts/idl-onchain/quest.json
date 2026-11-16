@@ -10,7 +10,7 @@
     {
       "name": "abandon_claim",
       "docs": [
-        "Claimer voluntarily abandons \u2014 forfeits stake to creator"
+        "Claimer voluntarily abandons — forfeits stake to creator"
       ],
       "discriminator": [
         232,
@@ -419,7 +419,7 @@
       ]
     },
     {
-      "name": "questing",
+      "name": "create_quest",
       "discriminator": [
         112,
         49,
@@ -687,6 +687,147 @@
         {
           "name": "burn_basis_points",
           "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "questing",
+      "docs": [
+        "Same as create_quest under the name explorers show for a quest post."
+      ],
+      "discriminator": [
+        3,
+        168,
+        2,
+        234,
+        241,
+        199,
+        243,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.quest_count",
+                "account": "QuestConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "creator_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "reward_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quest_type",
+          "type": {
+            "defined": {
+              "name": "QuestType"
+            }
+          }
+        },
+        {
+          "name": "target",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "max_claimers",
+          "type": "u8"
+        },
+        {
+          "name": "time_limit",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "description_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         }
       ]
     },

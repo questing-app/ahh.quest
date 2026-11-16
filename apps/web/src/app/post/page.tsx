@@ -96,6 +96,10 @@ const TIME_LIMITS = [
 
 const WALLET_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
+// Explorers list posts by instruction name; `questing` shows as "questing". Off
+// until the deployed program on this network has that instruction.
+const QUEST_INSTRUCTION = process.env.NEXT_PUBLIC_QUEST_INSTRUCTION === 'questing' ? 'questing' : 'createQuest'
+
 export default function PostQuestPage() {
   const { ready, authenticated, login } = useSession()
   const api = useApi()
@@ -239,6 +243,7 @@ export default function PostQuestPage() {
         target: questType === 'direct' ? target.trim() : null,
         timeLimit: timeLimit ? Math.floor(Date.now() / 1000) + timeLimit * 3600 : null,
         descriptionHash: await sha256(text),
+        instruction: QUEST_INSTRUCTION,
       })
       let txSignature: string
       if (swap) {

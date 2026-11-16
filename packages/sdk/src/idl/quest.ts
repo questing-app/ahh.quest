@@ -697,6 +697,147 @@ export type Quest = {
       ]
     },
     {
+      "name": "questing",
+      "docs": [
+        "Same as create_quest under the name explorers show for a quest post."
+      ],
+      "discriminator": [
+        3,
+        168,
+        2,
+        234,
+        241,
+        199,
+        243,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "quest",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config.quest_count",
+                "account": "questConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "quest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewardMint"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "creatorTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardAmount",
+          "type": "u64"
+        },
+        {
+          "name": "questType",
+          "type": {
+            "defined": {
+              "name": "questType"
+            }
+          }
+        },
+        {
+          "name": "target",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "maxClaimers",
+          "type": "u8"
+        },
+        {
+          "name": "timeLimit",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "descriptionHash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "rejectCompletion",
       "docs": [
         "Oracle-only: reject completion",
