@@ -22,7 +22,7 @@ import {
 import { useFundWallet } from '@privy-io/react-auth/solana'
 import { useApi, useSession } from '@/lib/session'
 import { errorMessage } from '@/lib/api'
-import { CLUSTER, loadLookupTables, program, useSendTransaction, useWallet } from '@/lib/chain'
+import { CLUSTER, PAUSED, PAUSED_MESSAGE, loadLookupTables, program, useSendTransaction, useWallet } from '@/lib/chain'
 import { useSolBalance, useTokenBalance } from '@/components/token-balance'
 import {
   LAMPORTS_PER_SOL,
@@ -274,6 +274,15 @@ export default function PostQuestPage() {
     if (problems[step]) return
     setTouched(false)
     setStep((s) => s + 1)
+  }
+
+  if (PAUSED) {
+    return (
+      <div className={TAB_BAR_SPACE}>
+        <NavBar title="New Quest" large />
+        <p className="px-8 pt-6 text-center text-[17px] leading-relaxed text-ink-soft">{PAUSED_MESSAGE}</p>
+      </div>
+    )
   }
 
   if (ready && !authenticated) {

@@ -23,6 +23,9 @@ export const RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? (API_URL ? `${API_URL.replace(/\/$/, '')}/rpc` : 'https://api.devnet.solana.com')
 
 export const connection = new Connection(RPC_URL, 'confirmed')
+/** Set while the on-chain program is offline: browsing works, anything that signs is blocked. */
+export const PAUSED = process.env.NEXT_PUBLIC_PAUSED === '1'
+export const PAUSED_MESSAGE = 'Quest is paused right now. You can browse, but posting and taking quests are switched off.'
 export const program = questProgram(connection)
 
 const explorerSuffix = CLUSTER === 'mainnet-beta' ? '' : `?cluster=${CLUSTER}`
@@ -60,6 +63,7 @@ export function useSendTransaction() {
 
   return useCallback(
     async (instructions: TransactionInstruction[], options: SendOptions = {}) => {
+      if (PAUSED) throw new Error(PAUSED_MESSAGE)
       if (!wallet) {
         // An external wallet (Phantom etc.) isn't reconnected automatically; ask for it now.
         if (address) {
